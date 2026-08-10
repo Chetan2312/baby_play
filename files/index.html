@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+<title>Takatak — letters and numbers for tiny fingers (English, मराठी, हिंदी)</title>
+<meta name="description" content="A safe fullscreen tapping toy for babies and toddlers. Every tap shows a big letter or number with its word in English, Marathi or Hindi, and says it out loud.">
+<meta name="theme-color" content="#12123A">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="https://example.com/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Takatak — letters and numbers for tiny fingers">
+<meta property="og:description" content="Let toddlers smash the keyboard safely. Big letters and numbers in English, Marathi and Hindi, spoken out loud.">
+<meta property="og:image" content="https://example.com/og-image.png">
+<meta property="og:url" content="https://example.com/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Mukta:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#12123A;        /* night indigo, the stage */
+    --ink-2:#1D1D57;      /* raised panel */
+    --mango:#FFB300;      /* turmeric yellow */
+    --peacock:#00A88F;    /* peacock green */
+    --rani:#E5266F;       /* rani pink */
+    --lapis:#2C6BE8;      /* lapis blue */
+    --cream:#FFF3D6;      /* rangoli chalk */
+    --display:"Baloo 2","Noto Sans Devanagari",system-ui,sans-serif;
+    --ui:"Mukta","Noto Sans Devanagari",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--ink)}
+  body{
+    font-family:var(--ui);color:var(--cream);
+    -webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;touch-action:none;
+    overscroll-behavior:none;
+  }
+  /* rangoli dot field, the quiet backdrop */
+  #stage{
+    position:fixed;inset:0;
+    background:
+      radial-gradient(circle at 50% 45%, rgba(44,107,232,.35), transparent 60%),
+      radial-gradient(rgba(255,243,214,.10) 1.6px, transparent 1.6px) 0 0/44px 44px,
+      var(--ink);
+  }
+  canvas{position:fixed;inset:0;width:100%;height:100%}
+
+  /* ---- the signature: a chalk-stamped letter card ---- */
+  #card{
+    position:fixed;inset:0;display:grid;place-content:center;
+    text-align:center;padding:4vmin;pointer-events:none;
+  }
+  /* glyph and picture sit side by side, the picture is the meaning of the word */
+  #stack{
+    display:flex;align-items:center;justify-content:center;
+    gap:min(5vh,5vw);
+  }
+  #glyph{
+    font-family:var(--display);font-weight:800;line-height:.9;
+    font-size:min(40vh,34vw);
+    color:var(--cream);
+    text-shadow:0 0 0 rgba(0,0,0,0);
+    letter-spacing:-.01em;
+  }
+  #pic{
+    /* --pic-cols is set from script: ten mangoes to count need smaller mangoes */
+    --pic-base:min(30vh,28vw); --pic-cols:1;
+    --pic-size:calc(var(--pic-base) / var(--pic-cols));
+    display:grid;gap:.5vmin;justify-content:center;justify-items:center;
+    grid-template-columns:repeat(var(--pic-cols), var(--pic-size));
+    font-size:var(--pic-size);line-height:1.05;text-align:center;
+    font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",
+                "Twemoji Mozilla",sans-serif;
+    filter:drop-shadow(0 .06em .12em rgba(0,0,0,.45));
+  }
+  #pic:empty{display:none}
+  #pic img{
+    display:block;width:var(--pic-size);height:var(--pic-size);
+    object-fit:cover;border-radius:14%;
+    box-shadow:0 .4vmin 1.2vmin rgba(0,0,0,.35);
+    background:rgba(255,243,214,.06);
+  }
+  /* no picture in play: let the letter breathe again */
+  #card.no-pic #glyph{font-size:min(52vh,44vw)}
+  @media (orientation:portrait) and (max-width:560px){
+    #stack{flex-direction:column;gap:min(2.5vh,3vw)}
+    #glyph{font-size:min(26vh,42vw)}
+    #pic{--pic-base:min(22vh,38vw)}
+  }
+  #word{
+    font-family:var(--display);font-weight:600;
+    font-size:min(9vh,9vw);margin-top:.4em;color:var(--mango);
+  }
+  #roman{
+    font-size:min(3.4vh,4.4vw);letter-spacing:.18em;text-transform:uppercase;
+    color:rgba(255,243,214,.55);margin-top:.5em;font-weight:600;
+  }
+  .pop{animation:stamp 420ms cubic-bezier(.2,1.5,.35,1) both}
+  @keyframes stamp{
+    0%{transform:scale(1.55) rotate(-3deg);opacity:0}
+    55%{opacity:1}
+    100%{transform:scale(1) rotate(0);opacity:1}
+  }
+  /* language tint: the letter takes the colour of its script */
+  .lang-en #glyph{color:var(--cream)}
+  .lang-mr #glyph{color:#7FE7D4}
+  .lang-hi #glyph{color:#FFD98A}
+
+  /* ---- start curtain ---- */
+  #curtain{
+    position:fixed;inset:0;display:grid;place-content:center;gap:2.2vh;
+    text-align:center;padding:6vmin;background:rgba(18,18,58,.92);
+    backdrop-filter:blur(6px);z-index:40;
+  }
+  #curtain h1{font-family:var(--display);font-weight:800;font-size:min(11vh,13vw);line-height:1}
+  #curtain h1 span{color:var(--mango)}
+  #curtain p{font-size:min(2.6vh,4.4vw);max-width:34ch;margin:0 auto;color:rgba(255,243,214,.75)}
+  .chips{display:flex;flex-wrap:wrap;gap:.6em;justify-content:center;font-size:min(2vh,3.6vw);color:rgba(255,243,214,.6)}
+  .chips b{background:rgba(255,243,214,.08);padding:.35em .8em;border-radius:99px;font-weight:600}
+  button{font-family:var(--ui);font-weight:700;cursor:pointer;border:0}
+  .big{
+    margin-top:1vh;background:var(--rani);color:#fff;font-size:min(3.4vh,5.4vw);
+    padding:.85em 1.6em;border-radius:99px;box-shadow:0 .5em 0 #A8134C;
+  }
+  .big:active{transform:translateY(.3em);box-shadow:0 .2em 0 #A8134C}
+  button:focus-visible{outline:3px solid var(--mango);outline-offset:3px}
+
+  /* ---- parent hotspot + panel ---- */
+  #hotspot{position:fixed;top:0;left:0;width:16vmin;height:16vmin;z-index:30}
+  #hint{
+    position:fixed;bottom:2.4vh;left:0;right:0;text-align:center;
+    font-size:min(1.8vh,3.2vw);color:rgba(255,243,214,.34);
+    transition:opacity 1s;z-index:20;
+  }
+  #panel{
+    position:fixed;inset:0;z-index:50;display:none;place-content:center;
+    background:rgba(9,9,30,.86);backdrop-filter:blur(8px);padding:4vmin;
+    overflow:auto;touch-action:auto;
+  }
+  #panel.open{display:grid}
+  .sheet{
+    background:var(--ink-2);border:1px solid rgba(255,243,214,.14);
+    border-radius:22px;padding:clamp(18px,3vmin,30px);width:min(560px,94vw);
+    display:grid;gap:18px;
+  }
+  .sheet h2{font-family:var(--display);font-size:1.5rem;font-weight:800}
+  .sheet h2 small{display:block;font-family:var(--ui);font-weight:400;font-size:.8rem;color:rgba(255,243,214,.55);margin-top:.2em}
+  fieldset{border:0;display:grid;gap:8px}
+  legend{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,243,214,.5);margin-bottom:6px}
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .opt{
+    display:inline-flex;align-items:center;gap:.5em;
+    background:rgba(255,243,214,.07);border:1px solid transparent;
+    padding:.55em .9em;border-radius:12px;font-size:.95rem;cursor:pointer;
+  }
+  .opt input{accent-color:var(--peacock);width:1.05em;height:1.05em}
+  .opt:has(input:checked){background:rgba(0,168,143,.18);border-color:var(--peacock)}
+  .opt:has(input:focus-visible){outline:3px solid var(--mango);outline-offset:2px}
+  .stat{font-size:.9rem;color:rgba(255,243,214,.6)}
+  .stat b{color:var(--mango);font-size:1.15rem}
+  .acts{display:flex;flex-wrap:wrap;gap:10px}
+  .acts button{background:rgba(255,243,214,.1);color:var(--cream);padding:.7em 1.1em;border-radius:12px;font-size:.95rem}
+  .acts .primary{background:var(--peacock);color:#04241F}
+  .note{font-size:.78rem;line-height:1.5;color:rgba(255,243,214,.45)}
+  @media (prefers-reduced-motion:reduce){
+    .pop{animation:none}
+  }
+</style>
+</head>
+<body class="lang-en">
+
+<div id="stage"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<div id="card" class="no-pic" aria-live="polite">
+  <div id="stack">
+    <div id="glyph">अ</div>
+    <div id="pic" role="img" aria-hidden="true"></div>
+  </div>
+  <div id="word"></div>
+  <div id="roman"></div>
+</div>
+
+<div id="hint">Parents: hold the top-left corner for 2 seconds, or type “parent”.</div>
+<div id="hotspot" aria-hidden="true"></div>
+
+<div id="curtain">
+  <h1>Taka<span>tak</span></h1>
+  <p>Every tap shows a big letter or number with its word and picture, and says it out loud. Nothing else happens — no menus, no links, no accidental shopping.</p>
+  <div class="chips">
+    <b>English</b><b>मराठी</b><b>हिंदी</b><b>Keyboard + touch + mouse</b><b>Works offline</b>
+  </div>
+  <button class="big" id="start">Start tapping</button>
+  <p class="note" style="font-size:min(1.7vh,3vw);opacity:.6">Best on a tablet or a laptop with a keyboard.</p>
+</div>
+
+<div id="panel" role="dialog" aria-modal="true" aria-label="Parent settings">
+  <div class="sheet">
+    <h2>Parent settings<small>Your child cannot reach this by tapping randomly.</small></h2>
+
+    <fieldset>
+      <legend>Scripts in play</legend>
+      <div class="row" id="langs">
+        <label class="opt"><input type="checkbox" value="en" checked> English A–Z</label>
+        <label class="opt"><input type="checkbox" value="mr"> मराठी मुळाक्षरे</label>
+        <label class="opt"><input type="checkbox" value="hi"> हिंदी वर्णमाला</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>What to show</legend>
+      <div class="row" id="mode">
+        <label class="opt"><input type="radio" name="mode" value="letters" checked> Letters</label>
+        <label class="opt"><input type="radio" name="mode" value="numbers"> Numbers</label>
+        <label class="opt"><input type="radio" name="mode" value="both"> Letters and numbers</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Order</legend>
+      <div class="row" id="order">
+        <label class="opt"><input type="radio" name="order" value="sequence" checked> In order</label>
+        <label class="opt"><input type="radio" name="order" value="shuffle"> Shuffled</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Sound and words</legend>
+      <div class="row">
+        <label class="opt"><input type="checkbox" id="optVoice" checked> Say it out loud</label>
+        <label class="opt"><input type="checkbox" id="optSfx" checked> Tap sounds</label>
+        <label class="opt"><input type="checkbox" id="optWord" checked> Show the word</label>
+        <label class="opt"><input type="checkbox" id="optRoman" checked> Show pronunciation</label>
+        <label class="opt"><input type="checkbox" id="optPic" checked> Show the picture</label>
+      </div>
+    </fieldset>
+
+    <p class="stat">Taps today: <b id="count">0</b></p>
+
+    <div class="acts">
+      <button class="primary" id="close">Back to playing</button>
+      <button id="fs">Go fullscreen</button>
+      <button id="reset">Reset today’s count</button>
+    </div>
+
+    <p class="note">Fullscreen and “say it out loud” depend on the browser. On iPad, add Takatak to the Home Screen for a proper fullscreen launch. A browser cannot fully lock a child out of the operating system — keep the device in a stand and stay nearby.</p>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Takatak — data
+   Each item: [ g = glyph, w = word, r = pronunciation, p = picture ]
+
+   p is an emoji by default: it ships inside the font, so it costs
+   nothing to download and it still works offline. Swap any p for a
+   file path ("pics/apple.png") and the card renders an <img> instead.
+   ============================================================ */
+const DATA = {
+  en: {
+    label:"English", voice:"en-IN",
+    letters:[
+      ["A","Apple","apple","pics/apple.webp","🍎"],
+      ["B","Ball","ball","pics/ball.webp","⚽"],
+      ["C","Cat","cat","pics/cat.webp","🐱"],
+      ["D","Dog","dog","pics/dog.webp","🐶"],
+      ["E","Elephant","elephant","pics/elephant.webp","🐘"],
+      ["F","Fish","fish","pics/fish.webp","🐟"],
+      ["G","Goat","goat","pics/goat.webp","🐐"],
+      ["H","Hat","hat","","🎩"],
+      ["I","Igloo","igloo","pics/igloo.webp","🛖"],
+      ["J","Jug","jug","pics/jug.webp","🏺"],
+      ["K","Kite","kite","pics/kite.webp","🪁"],
+      ["L","Lion","lion","pics/lion.webp","🦁"],
+      ["M","Mango","mango","pics/mango.webp","🥭"],
+      ["N","Nest","nest","pics/nest.webp","🪺"],
+      ["O","Owl","owl","pics/owl.webp","🦉"],
+      ["P","Parrot","parrot","pics/parrot.webp","🦜"],
+      ["Q","Queen","queen","pics/queen.webp","👑"],
+      ["R","Rabbit","rabbit","pics/rabbit.webp","🐰"],
+      ["S","Sun","sun","pics/sun.webp","☀️"],
+      ["T","Tiger","tiger","pics/tiger.webp","🐯"],
+      ["U","Umbrella","umbrella","pics/umbrella.webp","☂️"],
+      ["V","Van","van","pics/van.webp","🚐"],
+      ["W","Watch","watch","pics/watch.webp","⌚"],
+      ["X","Xylophone","xylophone","pics/xylophone.webp","🎹"],
+      ["Y","Yak","yak","pics/yak.webp","🐃"],
+      ["Z","Zebra","zebra","pics/zebra.webp","🦓"]
+    ],
+    numbers:[
+      ["0","Zero",""],
+      ["1","One",""],
+      ["2","Two",""],
+      ["3","Three",""],
+      ["4","Four",""],
+      ["5","Five",""],
+      ["6","Six",""],
+      ["7","Seven",""],
+      ["8","Eight",""],
+      ["9","Nine",""],
+      ["10","Ten",""]
+    ]
+  },
+  mr: {
+    label:"मराठी", voice:"mr-IN", fallback:"hi-IN",
+    letters:[
+      ["अ","अननस","ananas — pineapple","","🍍"],
+      ["आ","आई","aai — mother","pics/mother.webp","👩"],
+      ["इ","इमारत","imarat — building","pics/building.webp","🏢"],
+      ["ई","ईडलिंबू","idlimbu — sweet lime","pics/sweet-lime.webp","🍋"],
+      ["उ","उंट","unt — camel","pics/camel.webp","🐫"],
+      ["ऊ","ऊस","oos — sugarcane","pics/sugarcane.webp","🎋"],
+      ["ऋ","ऋषी","rishi — sage","","🧘"],
+      ["ए","एडका","edka — ram","pics/ram-sheep.webp","🐏"],
+      ["ऐ","ऐरण","airan — anvil","pics/anvil.webp","🔨"],
+      ["ओ","ओठ","oth — lip","pics/lips.webp","👄"],
+      ["औ","औषध","aushadh — medicine","pics/medicine.webp","💊"],
+      ["अं","अंगठी","angathi — ring","pics/ring.webp","💍"],
+      ["क","कमळ","kamal — lotus","pics/lotus.webp","🪷"],
+      ["ख","खडू","khadu — chalk","pics/chalk.webp","🖍️"],
+      ["ग","गणपती","Ganpati","pics/ganpati.webp","🕉️"],
+      ["घ","घर","ghar — house","pics/house.webp","🏠"],
+      ["च","चमचा","chamcha — spoon","pics/spoon.webp","🥄"],
+      ["छ","छत्री","chhatri — umbrella","pics/umbrella.webp","☂️"],
+      ["ज","जहाज","jahaj — ship","pics/ship.webp","🚢"],
+      ["झ","झरा","jhara — stream","pics/stream.webp","🏞️"],
+      ["ट","टरबूज","tarbooj — watermelon","pics/watermelon.webp","🍉"],
+      ["ठ","ठसा","thasa — stamp","pics/stamp.webp","🖐️"],
+      ["ड","डोंगर","dongar — hill","pics/hill.webp","⛰️"],
+      ["ढ","ढग","dhag — cloud","pics/cloud.webp","☁️"],
+      ["ण","बाण","baan — arrow","pics/arrow.webp","🏹"],
+      ["त","तलवार","talvar — sword","pics/sword.webp","⚔️"],
+      ["थ","थवा","thava — flock","pics/flock.webp","🐦"],
+      ["द","दप्तर","daptar — schoolbag","pics/schoolbag.webp","🎒"],
+      ["ध","धनुष्य","dhanushya — bow","pics/bow.webp","🏹"],
+      ["न","नारळ","naral — coconut","pics/coconut.webp","🥥"],
+      ["प","पतंग","patang — kite","pics/kite.webp","🪁"],
+      ["फ","फणस","phanas — jackfruit","pics/jackfruit.webp","🍈"],
+      ["ब","बदक","badak — duck","pics/duck.webp","🦆"],
+      ["भ","भाकरी","bhakri — flatbread","pics/flatbread.webp","🫓"],
+      ["म","मासा","masa — fish","pics/fish.webp","🐟"],
+      ["य","यज्ञ","yadnya — fire ritual","pics/yajna.webp","🔥"],
+      ["र","रथ","rath — chariot","pics/chariot.webp","🐎"],
+      ["ल","लसूण","lasun — garlic","pics/garlic.webp","🧄"],
+      ["व","वही","vahi — notebook","","📓"],
+      ["श","शाळा","shala — school","pics/school.webp","🏫"],
+      ["ष","षटकोन","shatkon — hexagon","","🔷"],
+      ["स","ससा","sasa — rabbit","pics/rabbit.webp","🐰"],
+      ["ह","हरीण","harin — deer","pics/deer.webp","🦌"],
+      ["ळ","बाळ","baal — baby","","👶"],
+      ["क्ष","क्षत्रिय","kshatriya — warrior","pics/warrior.webp","⚔️"],
+      ["ज्ञ","ज्ञानी","dnyani — wise one","pics/wise-one.webp","🧠"]
+    ],
+    numbers:[
+      ["०","शून्य","shoonya — zero"],
+      ["१","एक","ek — one"],
+      ["२","दोन","don — two"],
+      ["३","तीन","teen — three"],
+      ["४","चार","chaar — four"],
+      ["५","पाच","paach — five"],
+      ["६","सहा","saha — six"],
+      ["७","सात","saat — seven"],
+      ["८","आठ","aath — eight"],
+      ["९","नऊ","nau — nine"],
+      ["१०","दहा","daha — ten"]
+    ]
+  },
+  hi: {
+    label:"हिंदी", voice:"hi-IN",
+    letters:[
+      ["अ","अनार","anaar — pomegranate","pics/pomegranate.webp","🍎"],
+      ["आ","आम","aam — mango","pics/mango.webp","🥭"],
+      ["इ","इमली","imli — tamarind","pics/tamarind.webp","🫘"],
+      ["ई","ईख","eekh — sugarcane","pics/sugarcane.webp","🎋"],
+      ["उ","उल्लू","ullu — owl","pics/owl.webp","🦉"],
+      ["ऊ","ऊन","oon — wool","pics/wool.webp","🧶"],
+      ["ऋ","ऋषि","rishi — sage","","🧘"],
+      ["ए","एक","ek — one","pics/apple.webp","1️⃣"],
+      ["ऐ","ऐनक","ainak — spectacles","pics/spectacles.webp","👓"],
+      ["ओ","ओखली","okhli — mortar","pics/mortar.webp","🥣"],
+      ["औ","औषधि","aushadhi — medicine","pics/medicine.webp","💊"],
+      ["अं","अंगूर","angoor — grapes","pics/grapes.webp","🍇"],
+      ["क","कमल","kamal — lotus","pics/lotus.webp","🪷"],
+      ["ख","खरगोश","khargosh — rabbit","pics/rabbit.webp","🐰"],
+      ["ग","गमला","gamla — flowerpot","pics/flowerpot.webp","🪴"],
+      ["घ","घड़ी","ghadi — clock","pics/clock.webp","⏰"],
+      ["च","चम्मच","chammach — spoon","pics/spoon.webp","🥄"],
+      ["छ","छतरी","chhatri — umbrella","pics/umbrella.webp","☂️"],
+      ["ज","जहाज","jahaaj — ship","pics/ship.webp","🚢"],
+      ["झ","झंडा","jhanda — flag","pics/flag.webp","🚩"],
+      ["ट","टमाटर","tamatar — tomato","pics/tomato.webp","🍅"],
+      ["ठ","ठेला","thela — cart","","🛒"],
+      ["ड","डमरू","damru — drum","pics/damru.webp","🪘"],
+      ["ढ","ढोल","dhol — drum","pics/dhol.webp","🥁"],
+      ["ण","बाण","baan — arrow","pics/arrow.webp","🏹"],
+      ["त","तरबूज़","tarbooz — watermelon","pics/watermelon.webp","🍉"],
+      ["थ","थैला","thaila — bag","","👜"],
+      ["द","दीया","diya — lamp","pics/diya.webp","🪔"],
+      ["ध","धनुष","dhanush — bow","pics/bow.webp","🏹"],
+      ["न","नल","nal — tap","pics/tap.webp","🚰"],
+      ["प","पतंग","patang — kite","pics/kite.webp","🪁"],
+      ["फ","फल","phal — fruit","pics/fruit.webp","🍏"],
+      ["ब","बकरी","bakri — goat","pics/goat.webp","🐐"],
+      ["भ","भालू","bhaalu — bear","pics/bear.webp","🐻"],
+      ["म","मछली","machhli — fish","pics/fish.webp","🐟"],
+      ["य","यज्ञ","yagya — fire ritual","pics/yajna.webp","🔥"],
+      ["र","रथ","rath — chariot","pics/chariot.webp","🐎"],
+      ["ल","लट्टू","lattu — spinning top","pics/spinning-top.webp","🪀"],
+      ["व","वन","van — forest","pics/forest.webp","🌳"],
+      ["श","शेर","sher — lion","pics/lion.webp","🦁"],
+      ["ष","षट्कोण","shatkon — hexagon","","🔷"],
+      ["स","सेब","seb — apple","pics/apple.webp","🍎"],
+      ["ह","हल","hal — plough","pics/plough.webp","🚜"],
+      ["क्ष","क्षत्रिय","kshatriya — warrior","pics/warrior.webp","⚔️"],
+      ["त्र","त्रिशूल","trishul — trident","","🔱"],
+      ["ज्ञ","ज्ञान","gyaan — knowledge","pics/knowledge.webp","🧠"]
+    ],
+    numbers:[
+      ["०","शून्य","shoonya — zero"],
+      ["१","एक","ek — one"],
+      ["२","दो","do — two"],
+      ["३","तीन","teen — three"],
+      ["४","चार","chaar — four"],
+      ["५","पाँच","paanch — five"],
+      ["६","छह","chhah — six"],
+      ["७","सात","saat — seven"],
+      ["८","आठ","aath — eight"],
+      ["९","नौ","nau — nine"],
+      ["१०","दस","das — ten"]
+    ]
+  }
+};
+
+/* Numbers get something to count: three mangoes for ३, not the digit again.
+   Position in the list is the value, so 0 gets no picture at all. */
+const COUNT_PIC = {
+  en:["pics/apple.webp","🍎"],
+  mr:["pics/mango.webp","🥭"],
+  hi:["pics/ball.webp","⚽"]
+};
+for(const [lang, src] of Object.entries(DATA)){
+  const [pic, fb] = COUNT_PIC[lang];
+  src.numbers.forEach((row, n) => { row[3] = pic; row[4] = fb; row[5] = n; });
+}
+
+/* ---------- tiny storage that never throws ---------- */
+const mem = {};
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v===null ? (k in mem ? mem[k] : d) : JSON.parse(v); }
+             catch(e){ return (k in mem) ? mem[k] : d; } },
+  set(k, v){ mem[k]=v; try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ---------- settings ---------- */
+const S = store.get("tk.settings", {
+  langs:["en"], mode:"letters", order:"sequence",
+  voice:true, sfx:true, word:true, roman:true, pic:true
+});
+if(S.pic === undefined) S.pic = true;   // settings saved before pictures existed
+const today = new Date().toISOString().slice(0,10);
+let counter = store.get("tk.count."+today, 0);
+
+/* ---------- deck ---------- */
+let deck = [], ptr = -1;
+function buildDeck(){
+  deck = [];
+  for(const lang of S.langs){
+    const src = DATA[lang]; if(!src) continue;
+    const sets = S.mode==="both" ? ["letters","numbers"] : [S.mode];
+    for(const set of sets){
+      for(const [g,w,r,p,fb,n] of src[set])
+        deck.push({g,w,r:r||"",p:p||"",fb:fb||"",n:(n==null?1:n),lang});
+    }
+  }
+  if(!deck.length) deck.push({g:"A",w:"Apple",r:"apple",p:"pics/apple.webp",fb:"🍎",n:1,lang:"en"});
+  if(S.order==="shuffle"){
+    for(let i=deck.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [deck[i],deck[j]]=[deck[j],deck[i]]; }
+  }
+  ptr = -1;
+}
+
+/* ---------- audio ---------- */
+let ac = null;
+const SCALE = [261.63,293.66,329.63,392.00,440.00,523.25,587.33,659.25]; // C major pentatonic-ish
+function beep(i){
+  if(!S.sfx) return;
+  try{
+    ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+    if(ac.state==="suspended") ac.resume();
+    const f = SCALE[i % SCALE.length];
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type="triangle"; o.frequency.value=f;
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.22, ac.currentTime+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+0.42);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime+0.45);
+  }catch(e){}
+}
+
+let voices = [];
+function loadVoices(){ try{ voices = speechSynthesis.getVoices()||[]; }catch(e){} }
+loadVoices();
+if(window.speechSynthesis) speechSynthesis.onvoiceschanged = loadVoices;
+function pickVoice(lang){
+  const want = [DATA[lang].voice, DATA[lang].fallback, lang, "en-IN", "en-US"].filter(Boolean);
+  for(const tag of want){
+    const v = voices.find(v => v.lang && v.lang.toLowerCase().replace("_","-").startsWith(tag.toLowerCase()));
+    if(v) return v;
+  }
+  return null;
+}
+function say(item){
+  if(!S.voice || !window.speechSynthesis) return;
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(S.word ? item.g + ". " + item.w : item.g);
+    const v = pickVoice(item.lang);
+    if(v) u.voice = v;
+    u.lang = (v && v.lang) || DATA[item.lang].voice;
+    u.rate = 0.85; u.pitch = 1.15;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ---------- canvas fireworks: rangoli rings + confetti ---------- */
+const cv = document.getElementById("fx"), cx = cv.getContext("2d");
+const COLORS = ["#FFB300","#00A88F","#E5266F","#2C6BE8","#FFF3D6"];
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let parts = [], rings = [], dpr = 1;
+function resize(){
+  dpr = Math.min(devicePixelRatio||1, 2);
+  cv.width = innerWidth*dpr; cv.height = innerHeight*dpr;
+  cx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener("resize", resize); resize();
+
+function burst(x, y){
+  if(reduce) return;
+  rings.push({x,y,r:8,a:.9,c:COLORS[(Math.random()*COLORS.length)|0]});
+  const n = 26;
+  for(let i=0;i<n;i++){
+    const a = (Math.PI*2*i)/n + Math.random()*.3;
+    const sp = 3 + Math.random()*6;
+    parts.push({
+      x, y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp - 2,
+      r:3+Math.random()*6, life:1, c:COLORS[(Math.random()*COLORS.length)|0],
+      spin:(Math.random()-.5)*.3, rot:Math.random()*6
+    });
+  }
+  if(parts.length>600) parts.splice(0, parts.length-600);
+}
+function frame(){
+  cx.clearRect(0,0,innerWidth,innerHeight);
+  for(const r of rings){
+    r.r += 7; r.a -= .022;
+    if(r.a<=0) continue;
+    cx.beginPath(); cx.arc(r.x,r.y,r.r,0,Math.PI*2);
+    cx.strokeStyle = r.c; cx.globalAlpha = Math.max(r.a,0); cx.lineWidth = 3;
+    cx.setLineDash([2,10]); cx.stroke(); cx.setLineDash([]);
+  }
+  rings = rings.filter(r=>r.a>0);
+  for(const p of parts){
+    p.vy += .28; p.x += p.vx; p.y += p.vy; p.vx *= .99;
+    p.life -= .011; p.rot += p.spin;
+    if(p.life<=0) continue;
+    cx.globalAlpha = Math.max(p.life,0);
+    cx.save(); cx.translate(p.x,p.y); cx.rotate(p.rot);
+    cx.fillStyle = p.c; cx.fillRect(-p.r/2,-p.r/2,p.r,p.r*1.6);
+    cx.restore();
+  }
+  parts = parts.filter(p=>p.life>0);
+  cx.globalAlpha = 1;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- render ---------- */
+const elGlyph = document.getElementById("glyph");
+const elWord  = document.getElementById("word");
+const elRoman = document.getElementById("roman");
+const elPic   = document.getElementById("pic");
+const elCount = document.getElementById("count");
+const elCard  = document.getElementById("card");
+
+/* The picture is a photo file; the emoji in the data is the fallback for when
+   a photo will not load. Number cards repeat the picture item.n times, so the
+   child has something to actually count. */
+const broken = new Set();          // photos this browser could not load
+
+function hidePic(){
+  elPic.textContent = "";
+  elPic.setAttribute("aria-hidden","true");
+  elPic.removeAttribute("aria-label");
+  elCard.classList.add("no-pic");
+}
+function drawPic(item){
+  const n = (item.n == null) ? 1 : item.n;
+  const photo = (item.p && !broken.has(item.p)) ? item.p : "";
+  const art = photo || item.fb;
+  if(!S.pic || !art || n < 1) return hidePic();
+
+  elCard.classList.remove("no-pic");
+  elPic.removeAttribute("aria-hidden");
+  elPic.setAttribute("aria-label", n > 1 ? n + " × " + item.w : item.w);
+  elPic.style.setProperty("--pic-cols", Math.ceil(Math.sqrt(n)));
+
+  elPic.textContent = "";
+  for(let i=0;i<n;i++){
+    if(!photo){                              // emoji fallback, one per grid cell
+      const s = document.createElement("span");
+      s.textContent = item.fb;
+      elPic.appendChild(s);
+      continue;
+    }
+    const img = new Image();
+    img.src = photo; img.alt = ""; img.decoding = "async";
+    img.onerror = ()=>{                      // photo missing: use the emoji from now on
+      broken.add(photo);
+      if(deck[ptr] === item) drawPic(item);
+    };
+    elPic.appendChild(img);
+  }
+}
+
+let last = -1e9;      // not 0: on a fast load the first tap would land inside the guard
+function next(x, y){
+  const now = performance.now();
+  if(now - last < 180) return;          // a mashed keyboard should not become a strobe
+  last = now;
+
+  ptr = (ptr + 1) % deck.length;
+  if(ptr===0 && S.order==="shuffle" && deck.length>2) buildDeck(), ptr=0;
+  const item = deck[ptr];
+
+  document.body.className = "lang-" + item.lang;
+  elGlyph.textContent = item.g;
+  elWord.textContent  = S.word ? item.w : "";
+  elRoman.textContent = (S.roman && S.word) ? item.r : "";
+  drawPic(item);
+
+  elCard.classList.remove("pop"); void elCard.offsetWidth; elCard.classList.add("pop");
+  burst(x ?? innerWidth/2, y ?? innerHeight*0.62);
+  beep(ptr);
+  say(item);
+
+  counter++; store.set("tk.count."+today, counter);
+  elCount.textContent = counter.toLocaleString("en-IN");
+}
+
+/* ---------- input ---------- */
+const panel = document.getElementById("panel");
+const curtain = document.getElementById("curtain");
+const isPanelOpen = () => panel.classList.contains("open");
+let started = false;
+
+let buf = "";
+addEventListener("keydown", e=>{
+  if(isPanelOpen()){
+    if(e.key==="Escape") closePanel();
+    return;
+  }
+  buf = (buf + (e.key.length===1 ? e.key.toLowerCase() : "")).slice(-8);
+  if(buf.includes("parent")){ buf=""; openPanel(); return; }
+
+  // let the grown-ups keep their browser shortcuts
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  if(["Tab","F5","F11","F12"].includes(e.key)) return;
+
+  e.preventDefault();
+  if(!started) return;
+  next();
+}, {passive:false});
+
+function pointerPlay(e){
+  if(isPanelOpen() || !started) return;
+  const t = e.touches ? e.touches[0] : e;
+  next(t.clientX, t.clientY);
+}
+addEventListener("pointerdown", e=>{ if(e.target.closest("button,label,input")) return; pointerPlay(e); });
+addEventListener("wheel", e=>{ if(!isPanelOpen()) e.preventDefault(); }, {passive:false});
+addEventListener("contextmenu", e=>{ if(!isPanelOpen()) e.preventDefault(); });
+addEventListener("dragstart", e=>e.preventDefault());
+document.addEventListener("gesturestart", e=>e.preventDefault());
+addEventListener("touchmove", e=>{ if(!isPanelOpen()) e.preventDefault(); }, {passive:false});
+
+/* ---------- fullscreen + wake lock ---------- */
+let wake = null;
+async function goFullscreen(){
+  try{ await document.documentElement.requestFullscreen({navigationUI:"hide"}); }catch(e){}
+  try{ if(screen.orientation && screen.orientation.lock) await screen.orientation.lock("landscape"); }catch(e){}
+  try{ if("wakeLock" in navigator) wake = await navigator.wakeLock.request("screen"); }catch(e){}
+}
+document.addEventListener("visibilitychange", async ()=>{
+  if(document.visibilityState==="visible" && !wake && "wakeLock" in navigator){
+    try{ wake = await navigator.wakeLock.request("screen"); }catch(e){}
+  }
+});
+
+/* ---------- parent panel ---------- */
+const hotspot = document.getElementById("hotspot");
+let holdTimer = null;
+const holdStart = ()=>{ holdTimer = setTimeout(openPanel, 2000); };
+const holdEnd   = ()=>{ clearTimeout(holdTimer); };
+hotspot.addEventListener("pointerdown", e=>{ e.stopPropagation(); holdStart(); });
+["pointerup","pointerleave","pointercancel"].forEach(ev=>hotspot.addEventListener(ev, holdEnd));
+
+function openPanel(){
+  panel.classList.add("open");
+  try{ speechSynthesis.cancel(); }catch(e){}
+  document.getElementById("close").focus();
+}
+function closePanel(){ panel.classList.remove("open"); }
+
+/* wire controls */
+document.querySelectorAll("#langs input").forEach(cb=>{
+  cb.checked = S.langs.includes(cb.value);
+  cb.addEventListener("change", ()=>{
+    const on = [...document.querySelectorAll("#langs input:checked")].map(i=>i.value);
+    S.langs = on.length ? on : ["en"];
+    if(!on.length) document.querySelector('#langs input[value="en"]').checked = true;
+    save();
+  });
+});
+document.querySelectorAll('#mode input').forEach(r=>{
+  r.checked = (r.value===S.mode);
+  r.addEventListener("change", ()=>{ S.mode = r.value; save(); });
+});
+document.querySelectorAll('#order input').forEach(r=>{
+  r.checked = (r.value===S.order);
+  r.addEventListener("change", ()=>{ S.order = r.value; save(); });
+});
+const toggles = {optVoice:"voice", optSfx:"sfx", optWord:"word", optRoman:"roman", optPic:"pic"};
+for(const [id,key] of Object.entries(toggles)){
+  const el = document.getElementById(id);
+  el.checked = !!S[key];
+  el.addEventListener("change", ()=>{ S[key]=el.checked; save(); });
+}
+function save(){ store.set("tk.settings", S); buildDeck(); }
+
+document.getElementById("close").addEventListener("click", closePanel);
+document.getElementById("fs").addEventListener("click", goFullscreen);
+document.getElementById("reset").addEventListener("click", ()=>{
+  counter = 0; store.set("tk.count."+today, 0); elCount.textContent = "0";
+});
+
+/* ---------- start ---------- */
+document.getElementById("start").addEventListener("click", async ()=>{
+  started = true;
+  curtain.remove();
+  buildDeck();
+  try{ ac = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+  next(innerWidth/2, innerHeight*0.62);   // first card before anything that can hang
+  goFullscreen();
+  const hint = document.getElementById("hint");
+  setTimeout(()=>{ hint.style.opacity = "0"; }, 6000);
+});
+
+elCount.textContent = counter.toLocaleString("en-IN");
+buildDeck();
+
+/* ---------- offline ---------- */
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
