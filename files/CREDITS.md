@@ -1,3 +1,101 @@
+# 3D model credits
+
+All 3D models come from [Poly Pizza](https://poly.pizza). They were compressed
+(meshopt geometry, WebP textures) and some scenery was simplified; nothing else
+was changed, except that the cougar model is shown, recoloured, as the lioness
+(no free lioness model exists) and the mallard is recoloured for the mother duck.
+
+- **CC0 1.0** (Quaternius) — 53 models: fish, deer, zebra, wolf, fox and all the plants. No attribution needed.
+- **CC-BY 3.0** (Poly by Google) — 28 models: most land animals. Attribution required:
+  this table, plus the credits dialog inside the app (ⓘ button), covers it.
+  Licence text: https://creativecommons.org/licenses/by/3.0/
+
+| File | Model | Creator | Licence | Source |
+|---|---|---|---|---|
+| `models/animals/bear.glb` | Bear | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/0PXWfxfb0Hu |
+| `models/animals/bear-cub.glb` | Bear Cub | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/dc_78YWzT_R |
+| `models/animals/camel.glb` | Camel | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/1IBKBalN1yt |
+| `models/animals/cheetah.glb` | Cheetah | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/6V3uXmKROCU |
+| `models/animals/chimpanzee.glb` | Chimpanzee | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/6m3diqGPysx |
+| `models/animals/cobra.glb` | Cobra | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/f33vLGWNTV_ |
+| `models/animals/crocodile.glb` | Crocodile | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/2an6E2WjW3z |
+| `models/animals/doe.glb` | Deer | Quaternius | CC0 1.0 | https://poly.pizza/m/T6Cs7tmMHJ |
+| `models/animals/duck.glb` | Mallard duck | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/frSLi6b6Vid |
+| `models/animals/duckling.glb` | Duckling | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/cGH2xtNdS4i |
+| `models/animals/elephant.glb` | Elephant | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/a27MA0rXyyj |
+| `models/animals/fox.glb` | Fox | Quaternius | CC0 1.0 | https://poly.pizza/m/Bc97C66HKi |
+| `models/animals/frog.glb` | Frog | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/97NtujixdN7 |
+| `models/animals/giraffe.glb` | Giraffe | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/80w8kwQU0QH |
+| `models/animals/gorilla.glb` | Gorilla | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/bmfQ1j9CeO2 |
+| `models/animals/hippo.glb` | Hippopotamus | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/4HNi8dZMdZa |
+| `models/animals/hornbill.glb` | Abyssinian ground hornbill | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/6oDRcPLTN9R |
+| `models/animals/kangaroo.glb` | Kangaroo | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/7uiVArqEC80 |
+| `models/animals/koala.glb` | Koala | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/fzCu8FM0HfB |
+| `models/animals/lion.glb` | Lion | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/3XAJojWxSWz |
+| `models/animals/lioness.glb` | Cougar (used as lioness) | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/8nuCN-gn2s- |
+| `models/animals/monkey.glb` | monkey | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/0yRz2AkLuuo |
+| `models/animals/owl.glb` | Barn owl | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/eSEv3rCMKbg |
+| `models/animals/panda.glb` | Panda | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/2T6A0o4Kq2h |
+| `models/animals/parrot.glb` | Parrot | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/35EeLqGHH1y |
+| `models/animals/rabbit.glb` | Rabbit | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/9OBTRVYUSmt |
+| `models/animals/rhino.glb` | Rhinoceros | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/11qk1uy0YGH |
+| `models/animals/squirrel.glb` | Squirrel | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/fQ5KzXoR2uA |
+| `models/animals/stag.glb` | Stag | Quaternius | CC0 1.0 | https://poly.pizza/m/tQdzbZ1Cmw |
+| `models/animals/tiger.glb` | Tiger | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/5A3w06FXUup |
+| `models/animals/turtle.glb` | Turtle | Poly by Google | CC-BY 3.0 | https://poly.pizza/m/2LCcq8vhqJ3 |
+| `models/animals/wolf.glb` | Wolf | Quaternius | CC0 1.0 | https://poly.pizza/m/P1gU3Qkr9r |
+| `models/animals/zebra.glb` | Zebra | Quaternius | CC0 1.0 | https://poly.pizza/m/iclPBR6SBZ |
+| `models/fish/betta.glb` | Betta | Quaternius | CC0 1.0 | https://poly.pizza/m/Vg8IlYjdZi |
+| `models/fish/blue-tang.glb` | Blue Tang | Quaternius | CC0 1.0 | https://poly.pizza/m/TQaMo8GTJl |
+| `models/fish/butterfly-fish.glb` | Butterfly Fish | Quaternius | CC0 1.0 | https://poly.pizza/m/s2MkBeSzGy |
+| `models/fish/catfish.glb` | Armored Catfish | Quaternius | CC0 1.0 | https://poly.pizza/m/mtd9QK5yCe |
+| `models/fish/clownfish.glb` | Clownfish | Quaternius | CC0 1.0 | https://poly.pizza/m/769fHo3eEB |
+| `models/fish/goldfish.glb` | Goldfish | Quaternius | CC0 1.0 | https://poly.pizza/m/qS6CgsWFAh |
+| `models/fish/grouper.glb` | Coral Grouper | Quaternius | CC0 1.0 | https://poly.pizza/m/Q2GNw9TRzF |
+| `models/fish/koi.glb` | Koi | Quaternius | CC0 1.0 | https://poly.pizza/m/qyGtRmhgzl |
+| `models/fish/mandarin.glb` | Mandarin Fish | Quaternius | CC0 1.0 | https://poly.pizza/m/h6M5zlF5Yx |
+| `models/fish/moorish-idol.glb` | Moorish Idol | Quaternius | CC0 1.0 | https://poly.pizza/m/M0UX3rVvNX |
+| `models/fish/puffer.glb` | Puffer | Quaternius | CC0 1.0 | https://poly.pizza/m/UKHtgpxTOk |
+| `models/fish/red-snapper.glb` | Red Snapper | Quaternius | CC0 1.0 | https://poly.pizza/m/BRKfDKwPTv |
+| `models/fish/swordfish.glb` | Swordfish | Quaternius | CC0 1.0 | https://poly.pizza/m/7hMOlBjln0 |
+| `models/fish/trout.glb` | Fish | Quaternius | CC0 1.0 | https://poly.pizza/m/XWl86YFtpF |
+| `models/fish/tuna.glb` | Tuna | Quaternius | CC0 1.0 | https://poly.pizza/m/1tycAcvSVW |
+| `models/fish/turbot.glb` | Turbot | Quaternius | CC0 1.0 | https://poly.pizza/m/E8NjhhdvSU |
+| `models/nature/bamboo-1.glb` | Bamboo | Quaternius | CC0 1.0 | https://poly.pizza/m/FUgtfvqgMx |
+| `models/nature/bamboo-2.glb` | Bamboo | Quaternius | CC0 1.0 | https://poly.pizza/m/xBPj13w3JQ |
+| `models/nature/bamboo-3.glb` | Bamboo Mid | Quaternius | CC0 1.0 | https://poly.pizza/m/z0d6CbNtrz |
+| `models/nature/bush-1.glb` | Bush | Quaternius | CC0 1.0 | https://poly.pizza/m/EoTERLq3z2 |
+| `models/nature/bush-2.glb` | Bush | Quaternius | CC0 1.0 | https://poly.pizza/m/BVYSNurXMV |
+| `models/nature/bush-berries.glb` | Bush with Berries | Quaternius | CC0 1.0 | https://poly.pizza/m/TSbIxkDtxF |
+| `models/nature/bush-flowers.glb` | Bush with Flowers | Quaternius | CC0 1.0 | https://poly.pizza/m/U1ymDy8tbY |
+| `models/nature/fern.glb` | Fern | Quaternius | CC0 1.0 | https://poly.pizza/m/jqcanvH7D6 |
+| `models/nature/flowers-1.glb` | Flower Group | Quaternius | CC0 1.0 | https://poly.pizza/m/hfPzQAedOe |
+| `models/nature/flowers-2.glb` | Flower Group | Quaternius | CC0 1.0 | https://poly.pizza/m/LqTljN6Wg2 |
+| `models/nature/grass.glb` | Grass | Quaternius | CC0 1.0 | https://poly.pizza/m/vUJjrRsFp4 |
+| `models/nature/lilypad.glb` | Lilypad | Quaternius | CC0 1.0 | https://poly.pizza/m/TI6ukUlsLh |
+| `models/nature/log.glb` | Wood Log with Moss | Quaternius | CC0 1.0 | https://poly.pizza/m/nwsYvcI0bC |
+| `models/nature/mushroom.glb` | Mushroom | Quaternius | CC0 1.0 | https://poly.pizza/m/db1tjMhmiA |
+| `models/nature/palm-1.glb` | Palm Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/DsrrAYmucG |
+| `models/nature/palm-2.glb` | Palm Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/P0tgwyXBgr |
+| `models/nature/palm-3.glb` | Palm Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/A6cKJYFsIb |
+| `models/nature/plant-1.glb` | Plant Big | Quaternius | CC0 1.0 | https://poly.pizza/m/MbhbP7JrTI |
+| `models/nature/plant-2.glb` | Plant Big | Quaternius | CC0 1.0 | https://poly.pizza/m/uwJ1rwrZlB |
+| `models/nature/rock-moss.glb` | Rock Moss | Quaternius | CC0 1.0 | https://poly.pizza/m/Oar39tFugM |
+| `models/nature/rocks-1.glb` | Rocks | Quaternius | CC0 1.0 | https://poly.pizza/m/fy3szRMvuE |
+| `models/nature/rocks-2.glb` | Rocks | Quaternius | CC0 1.0 | https://poly.pizza/m/e1rgb5i2kF |
+| `models/nature/stump.glb` | Tree Stump with Moss | Quaternius | CC0 1.0 | https://poly.pizza/m/nFvEbUX6LE |
+| `models/nature/tall-grass.glb` | Tall Grass | Quaternius | CC0 1.0 | https://poly.pizza/m/JSIYtscPmP |
+| `models/nature/tree-1.glb` | Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/t9KbsfYdXz |
+| `models/nature/tree-2.glb` | Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/aVOxaHRPWe |
+| `models/nature/tree-3.glb` | Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/YWjGDJ9F7g |
+| `models/nature/tree-4.glb` | Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/2paAm1ja4w |
+| `models/nature/tree-5.glb` | Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/1BkD9JnKrE |
+| `models/nature/tree-6.glb` | Tree | Quaternius | CC0 1.0 | https://poly.pizza/m/8qABc2Nslz |
+| `models/nature/vines.glb` | Vines | Quaternius | CC0 1.0 | https://poly.pizza/m/EVS4viM9BL |
+| `models/nature/willow.glb` | Willow | Quaternius | CC0 1.0 | https://poly.pizza/m/mBrUbIp9Zd |
+
+3D engine: [three.js](https://threejs.org) r186, MIT licence (`vendor/three/LICENSE`).
+
 # Picture credits
 
 Every photo in `pics/` was collected through the [Openverse](https://openverse.org)

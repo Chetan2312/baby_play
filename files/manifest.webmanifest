@@ -1,19 +1,40 @@
 {
-  "name": "Takatak — letters and numbers for tiny fingers",
-  "short_name": "Takatak",
-  "description": "A safe fullscreen tapping toy. Every tap shows a letter or number in English, Marathi or Hindi and says it out loud.",
+  "name": "Takatak Zoo — a 3D jungle walk for kids",
+  "short_name": "Takatak Zoo",
+  "description": "Walk through a 3D jungle, meet every animal's family and dive into the fish pond. English, मराठी and हिंदी.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone"],
-  "orientation": "landscape",
-  "background_color": "#12123A",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#bfe6f5",
   "theme_color": "#12123A",
   "lang": "en-IN",
-  "categories": ["education", "kids"],
+  "categories": [
+    "education",
+    "kids"
+  ],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

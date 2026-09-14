@@ -1,0 +1,569 @@
+[
+ {
+  "file": "models/animals/bear.glb",
+  "title": "Bear",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/0PXWfxfb0Hu"
+ },
+ {
+  "file": "models/animals/bear-cub.glb",
+  "title": "Bear Cub",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/dc_78YWzT_R"
+ },
+ {
+  "file": "models/animals/camel.glb",
+  "title": "Camel",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/1IBKBalN1yt"
+ },
+ {
+  "file": "models/animals/cheetah.glb",
+  "title": "Cheetah",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/6V3uXmKROCU"
+ },
+ {
+  "file": "models/animals/chimpanzee.glb",
+  "title": "Chimpanzee",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/6m3diqGPysx"
+ },
+ {
+  "file": "models/animals/cobra.glb",
+  "title": "Cobra",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/f33vLGWNTV_"
+ },
+ {
+  "file": "models/animals/crocodile.glb",
+  "title": "Crocodile",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/2an6E2WjW3z"
+ },
+ {
+  "file": "models/animals/doe.glb",
+  "title": "Deer",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/T6Cs7tmMHJ"
+ },
+ {
+  "file": "models/animals/duck.glb",
+  "title": "Mallard duck",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/frSLi6b6Vid"
+ },
+ {
+  "file": "models/animals/duckling.glb",
+  "title": "Duckling",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/cGH2xtNdS4i"
+ },
+ {
+  "file": "models/animals/elephant.glb",
+  "title": "Elephant",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/a27MA0rXyyj"
+ },
+ {
+  "file": "models/animals/fox.glb",
+  "title": "Fox",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/Bc97C66HKi"
+ },
+ {
+  "file": "models/animals/frog.glb",
+  "title": "Frog",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/97NtujixdN7"
+ },
+ {
+  "file": "models/animals/giraffe.glb",
+  "title": "Giraffe",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/80w8kwQU0QH"
+ },
+ {
+  "file": "models/animals/gorilla.glb",
+  "title": "Gorilla",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/bmfQ1j9CeO2"
+ },
+ {
+  "file": "models/animals/hippo.glb",
+  "title": "Hippopotamus",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/4HNi8dZMdZa"
+ },
+ {
+  "file": "models/animals/hornbill.glb",
+  "title": "Abyssinian ground hornbill",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/6oDRcPLTN9R"
+ },
+ {
+  "file": "models/animals/kangaroo.glb",
+  "title": "Kangaroo",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/7uiVArqEC80"
+ },
+ {
+  "file": "models/animals/koala.glb",
+  "title": "Koala",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/fzCu8FM0HfB"
+ },
+ {
+  "file": "models/animals/lion.glb",
+  "title": "Lion",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/3XAJojWxSWz"
+ },
+ {
+  "file": "models/animals/lioness.glb",
+  "title": "Cougar (used as lioness)",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/8nuCN-gn2s-"
+ },
+ {
+  "file": "models/animals/monkey.glb",
+  "title": "monkey",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/0yRz2AkLuuo"
+ },
+ {
+  "file": "models/animals/owl.glb",
+  "title": "Barn owl",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/eSEv3rCMKbg"
+ },
+ {
+  "file": "models/animals/panda.glb",
+  "title": "Panda",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/2T6A0o4Kq2h"
+ },
+ {
+  "file": "models/animals/parrot.glb",
+  "title": "Parrot",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/35EeLqGHH1y"
+ },
+ {
+  "file": "models/animals/rabbit.glb",
+  "title": "Rabbit",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/9OBTRVYUSmt"
+ },
+ {
+  "file": "models/animals/rhino.glb",
+  "title": "Rhinoceros",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/11qk1uy0YGH"
+ },
+ {
+  "file": "models/animals/squirrel.glb",
+  "title": "Squirrel",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/fQ5KzXoR2uA"
+ },
+ {
+  "file": "models/animals/stag.glb",
+  "title": "Stag",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/tQdzbZ1Cmw"
+ },
+ {
+  "file": "models/animals/tiger.glb",
+  "title": "Tiger",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/5A3w06FXUup"
+ },
+ {
+  "file": "models/animals/turtle.glb",
+  "title": "Turtle",
+  "creator": "Poly by Google",
+  "licence": "CC-BY 3.0",
+  "source": "https://poly.pizza/m/2LCcq8vhqJ3"
+ },
+ {
+  "file": "models/animals/wolf.glb",
+  "title": "Wolf",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/P1gU3Qkr9r"
+ },
+ {
+  "file": "models/animals/zebra.glb",
+  "title": "Zebra",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/iclPBR6SBZ"
+ },
+ {
+  "file": "models/fish/betta.glb",
+  "title": "Betta",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/Vg8IlYjdZi"
+ },
+ {
+  "file": "models/fish/blue-tang.glb",
+  "title": "Blue Tang",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/TQaMo8GTJl"
+ },
+ {
+  "file": "models/fish/butterfly-fish.glb",
+  "title": "Butterfly Fish",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/s2MkBeSzGy"
+ },
+ {
+  "file": "models/fish/catfish.glb",
+  "title": "Armored Catfish",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/mtd9QK5yCe"
+ },
+ {
+  "file": "models/fish/clownfish.glb",
+  "title": "Clownfish",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/769fHo3eEB"
+ },
+ {
+  "file": "models/fish/goldfish.glb",
+  "title": "Goldfish",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/qS6CgsWFAh"
+ },
+ {
+  "file": "models/fish/grouper.glb",
+  "title": "Coral Grouper",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/Q2GNw9TRzF"
+ },
+ {
+  "file": "models/fish/koi.glb",
+  "title": "Koi",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/qyGtRmhgzl"
+ },
+ {
+  "file": "models/fish/mandarin.glb",
+  "title": "Mandarin Fish",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/h6M5zlF5Yx"
+ },
+ {
+  "file": "models/fish/moorish-idol.glb",
+  "title": "Moorish Idol",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/M0UX3rVvNX"
+ },
+ {
+  "file": "models/fish/puffer.glb",
+  "title": "Puffer",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/UKHtgpxTOk"
+ },
+ {
+  "file": "models/fish/red-snapper.glb",
+  "title": "Red Snapper",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/BRKfDKwPTv"
+ },
+ {
+  "file": "models/fish/swordfish.glb",
+  "title": "Swordfish",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/7hMOlBjln0"
+ },
+ {
+  "file": "models/fish/trout.glb",
+  "title": "Fish",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/XWl86YFtpF"
+ },
+ {
+  "file": "models/fish/tuna.glb",
+  "title": "Tuna",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/1tycAcvSVW"
+ },
+ {
+  "file": "models/fish/turbot.glb",
+  "title": "Turbot",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/E8NjhhdvSU"
+ },
+ {
+  "file": "models/nature/bamboo-1.glb",
+  "title": "Bamboo",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/FUgtfvqgMx"
+ },
+ {
+  "file": "models/nature/bamboo-2.glb",
+  "title": "Bamboo",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/xBPj13w3JQ"
+ },
+ {
+  "file": "models/nature/bamboo-3.glb",
+  "title": "Bamboo Mid",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/z0d6CbNtrz"
+ },
+ {
+  "file": "models/nature/bush-1.glb",
+  "title": "Bush",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/EoTERLq3z2"
+ },
+ {
+  "file": "models/nature/bush-2.glb",
+  "title": "Bush",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/BVYSNurXMV"
+ },
+ {
+  "file": "models/nature/bush-berries.glb",
+  "title": "Bush with Berries",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/TSbIxkDtxF"
+ },
+ {
+  "file": "models/nature/bush-flowers.glb",
+  "title": "Bush with Flowers",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/U1ymDy8tbY"
+ },
+ {
+  "file": "models/nature/fern.glb",
+  "title": "Fern",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/jqcanvH7D6"
+ },
+ {
+  "file": "models/nature/flowers-1.glb",
+  "title": "Flower Group",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/hfPzQAedOe"
+ },
+ {
+  "file": "models/nature/flowers-2.glb",
+  "title": "Flower Group",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/LqTljN6Wg2"
+ },
+ {
+  "file": "models/nature/grass.glb",
+  "title": "Grass",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/vUJjrRsFp4"
+ },
+ {
+  "file": "models/nature/lilypad.glb",
+  "title": "Lilypad",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/TI6ukUlsLh"
+ },
+ {
+  "file": "models/nature/log.glb",
+  "title": "Wood Log with Moss",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/nwsYvcI0bC"
+ },
+ {
+  "file": "models/nature/mushroom.glb",
+  "title": "Mushroom",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/db1tjMhmiA"
+ },
+ {
+  "file": "models/nature/palm-1.glb",
+  "title": "Palm Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/DsrrAYmucG"
+ },
+ {
+  "file": "models/nature/palm-2.glb",
+  "title": "Palm Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/P0tgwyXBgr"
+ },
+ {
+  "file": "models/nature/palm-3.glb",
+  "title": "Palm Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/A6cKJYFsIb"
+ },
+ {
+  "file": "models/nature/plant-1.glb",
+  "title": "Plant Big",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/MbhbP7JrTI"
+ },
+ {
+  "file": "models/nature/plant-2.glb",
+  "title": "Plant Big",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/uwJ1rwrZlB"
+ },
+ {
+  "file": "models/nature/rock-moss.glb",
+  "title": "Rock Moss",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/Oar39tFugM"
+ },
+ {
+  "file": "models/nature/rocks-1.glb",
+  "title": "Rocks",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/fy3szRMvuE"
+ },
+ {
+  "file": "models/nature/rocks-2.glb",
+  "title": "Rocks",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/e1rgb5i2kF"
+ },
+ {
+  "file": "models/nature/stump.glb",
+  "title": "Tree Stump with Moss",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/nFvEbUX6LE"
+ },
+ {
+  "file": "models/nature/tall-grass.glb",
+  "title": "Tall Grass",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/JSIYtscPmP"
+ },
+ {
+  "file": "models/nature/tree-1.glb",
+  "title": "Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/t9KbsfYdXz"
+ },
+ {
+  "file": "models/nature/tree-2.glb",
+  "title": "Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/aVOxaHRPWe"
+ },
+ {
+  "file": "models/nature/tree-3.glb",
+  "title": "Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/YWjGDJ9F7g"
+ },
+ {
+  "file": "models/nature/tree-4.glb",
+  "title": "Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/2paAm1ja4w"
+ },
+ {
+  "file": "models/nature/tree-5.glb",
+  "title": "Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/1BkD9JnKrE"
+ },
+ {
+  "file": "models/nature/tree-6.glb",
+  "title": "Tree",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/8qABc2Nslz"
+ },
+ {
+  "file": "models/nature/vines.glb",
+  "title": "Vines",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/EVS4viM9BL"
+ },
+ {
+  "file": "models/nature/willow.glb",
+  "title": "Willow",
+  "creator": "Quaternius",
+  "licence": "CC0 1.0",
+  "source": "https://poly.pizza/m/mBrUbIp9Zd"
+ }
+]

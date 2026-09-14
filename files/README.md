@@ -1,152 +1,120 @@
-# Takatak — build and deploy notes
+# Takatak Zoo — build and deploy notes
 
-A single-file fullscreen tapping toy for toddlers. Every tap (touch, mouse, or any key) shows one
-big letter or number, its word, a picture of that word, and speaks it aloud. English A–Z, मराठी मुळाक्षरे, हिंदी वर्णमाला.
+A 3D jungle walk for children. Walk an oval path past 28 animals, tap any animal to
+meet its family (father, mother, babies and — for egg layers — a nest of eggs) on a
+stage the child can spin all the way round. Tap the pond to go under water: fish we
+eat swim on one side, fish we don't eat on the other, and each fish opens its own
+family view with eggs. Names in English, मराठी and हिंदी, spoken aloud.
 
 ```
-takatak/
-├── index.html              # whole app: markup + CSS + JS + letter data
-├── manifest.webmanifest    # PWA: installs as a fullscreen app
+files/
+├── index.html              # page, styles, import map
+├── js/
+│   ├── data.js             # ALL content: names, family sizes, facts  ← edit this
+│   ├── app.js              # UI, walking, tapping, labels, info panel, speech
+│   ├── jungle.js           # path, ground, pond, plants, animal clearings
+│   ├── family.js           # the 360° family stage (land + underwater)
+│   ├── fishworld.js        # under the pond
+│   ├── assets.js           # model loading, sizing, instancing, eggs, tadpoles
+│   └── env.js              # sky, lights, generated textures
+├── vendor/three/           # three.js r186, minified, no CDN needed
+├── models/                 # 81 GLB models (4.4 MB), credits.json
+├── pics/                   # photos; 11 are shown in the info panel
 ├── sw.js                   # offline cache (bump CACHE on every deploy)
-├── pics/                   # 82 word photos, 512px square WebP, freely licensed
-├── CREDITS.md              # source + licence for every photo  ← ship this with the app
-└── icons/                  # icon-192.png, icon-512.png, icon-maskable-512.png  ← you must add
+├── manifest.webmanifest    # PWA install
+└── CREDITS.md              # model + photo licences  ← ship this with the app
 ```
 
 ## 1. Run it locally
 
-Service workers and fullscreen need `http(s)`, not `file://`:
+ES modules and the service worker need `http(s)`, not `file://`:
 
 ```bash
-cd takatak
+cd files
 python3 -m http.server 8080
 # open http://localhost:8080
 ```
 
-## 2. Put it on your domain
+The service worker is skipped on `localhost`, so edits show up on refresh.
 
-Cheapest and fastest path: **Cloudflare Pages** (free, global CDN, free TLS).
+## 2. Deploy
 
-```bash
-git init && git add . && git commit -m "Takatak v0.1"
-# push to GitHub, then in Cloudflare dashboard:
-# Workers & Pages → Create → Pages → Connect to Git
-# Framework preset: None. Build command: (empty). Output directory: /
-# Custom domains → add your domain → follow the CNAME/nameserver step
-```
+Any static host (Cloudflare Pages, GitHub Pages, Netlify). No build step: publish the
+`files/` folder as the site root. After each deploy bump `const CACHE = "takatak-zoo-v…"`
+in `sw.js`, or returning visitors keep the old copy.
 
-Alternatives, same effort: GitHub Pages, Netlify, Vercel. Any static host works — there is no
-backend, no database, no build step.
+First visit downloads about 6 MB (models 4.4 MB, three.js 0.9 MB, photos, fonts);
+after that it runs offline.
 
-After each deploy, bump `const CACHE = "takatak-v…"` in `sw.js`, or returning visitors keep the
-old cached copy. Bump it whenever a picture changes too, not just the HTML.
-
-## 3. Things you must replace before launch
+## 3. Things to replace before launch
 
 | Where | What |
 |---|---|
-| `index.html` `<title>`, `<meta description>` | your real name and pitch |
 | `index.html` `canonical`, `og:url`, `og:image` | `https://example.com/` → your domain |
-| `icons/` | 192px, 512px, and a maskable 512px PNG (safe area: keep art inside the middle 80%) |
-| `og-image.png` | 1200×630 social preview |
-| `#curtain h1` | the product name, in two spans so the second half takes the accent colour |
+| `icons/` | 192px, 512px and a maskable 512px PNG (the folder does not exist yet) |
+| `og-image.png` | 1200×630 social preview — a screenshot of a family view works well |
 
-## 4. Customising the content
+## 4. Content
 
-All content lives in one object, `DATA`, at the top of the script. Shape:
+Everything a child reads or hears is in `js/data.js`.
 
-```js
-["क", "कमळ", "kamal — lotus", "pics/lotus.webp", "🪷"]
-//  glyph, word, pronunciation + meaning, photo, emoji fallback
+- **Names** are in all three languages. **Fact sheets are English only** — translate the
+  `info` blocks to go fully trilingual (the panel shows whichever language is picked).
+- **Family size**: `n` is how many babies stand on the stage, `eggs` how many eggs sit in
+  the nest. They are chosen to look right, not to be the real average — the real numbers
+  are in the `babies` / `eggs` text.
+- **Sizes** (`h` or `len`) are display sizes in metres. Small animals are enlarged on
+  purpose so a child can see a frog from the path.
+- **Add an animal**: drop `models/animals/<key>.glb` in, add an entry to `ANIMALS`, add
+  the file to `ASSETS` in `sw.js`. It gets a stop on the path automatically (stops are
+  spread evenly, so the path gets a little more crowded). If the model faces sideways,
+  set `yaw` (the camel uses `-Math.PI / 2`).
+- **Add a fish**: model into `models/fish/`, entry into `FISH` with `edible: true/false`.
+
+### Where the models came from
+
+Poly Pizza (<https://poly.pizza>): land animals from "Poly by Google" (CC-BY 3.0),
+fish, deer, zebra, wolf, fox and all plants from Quaternius (CC0). They were compressed
+with
+
+```bash
+npx @gltf-transform/cli optimize in.glb out.glb --compress meshopt --texture-compress webp --texture-size 512
 ```
 
-- **Pictures** are real photos in `pics/`, 512px square WebP, precached by the service worker so
-  the toy still shows them with the plane in flight mode. All are freely licensed but under
-  *different* licences — about two thirds CC0 / public domain, the rest CC BY or CC BY-SA.
-  [CREDITS.md](CREDITS.md) lists every source and flags the 21 share-alike files to swap if you
-  ever need a uniformly CC0 set. Ship CREDITS.md with the app and attribution is covered.
-- **The emoji is a fallback**, not decoration: if a photo 404s or fails to decode, that card
-  (and every later card using the same file) quietly falls back to the emoji instead of going
-  blank. Swap a photo by dropping a new square file at the same path.
-- **Numbers** get their picture from `COUNT_PIC` (just below `DATA`), repeated by the number's
-  position: ३ shows three mangoes, not the digit again — something a toddler can actually count.
-  Zero shows nothing, which is the point. The grid is `ceil(sqrt(n))` wide, so ९ is a tidy 3×3.
-- **Adding pictures for a new language:** point the fourth field at any square image in `pics/`
-  and add the filename to `PICS` at the top of `sw.js` so it caches offline.
+and big plants were simplified first (`gltf-transform simplify --ratio 0.3 --error 0.015`).
+Keep new models under ~3k triangles; the plants are drawn hundreds of times.
 
-- **Add a language:** add a key with `voice` (a BCP-47 tag such as `gu-IN`), optional `fallback`,
-  plus `letters` and `numbers` arrays. Then add one checkbox in the `#langs` block with the same key.
-- **Add a mode** (shapes, colours, animals): add the array to each language, add `"shapes"` to the
-  `sets` list in `buildDeck()`, add a radio in `#mode`.
-- **ण, ळ, ङ, ञ** do not start words. Those rows use a word that *contains* the letter (बाण, बाळ).
-  ङ and ञ are left out entirely — add them if you want the complete 48-letter chart.
+**Honest gaps**: there is no free peacock or lioness model. The lioness is the cougar
+model recoloured, and the peacock is left out (the hornbill stands in as the jungle bird).
+Male and female of the same species are usually the same model at different sizes —
+exceptions: deer (stag + doe), lion (lion + lioness), duck (drake + recoloured duck).
 
-Design tokens are the CSS variables at the top: `--mango`, `--peacock`, `--rani`, `--lapis`,
-`--cream` over `--ink`. Each script also gets its own glyph tint (`.lang-mr`, `.lang-hi`) so a
-parent can tell at a glance which chart is on screen.
+## 5. Performance
 
-## 5. Honest limits of the "safe" claim
+- The jungle draws about 400k triangles on phones and ~600k on desktop, ~170 draw
+  calls. Plants are instanced; only plants within 125 m and not behind the camera are
+  drawn (refreshed when the camera moves 3 m or turns).
+- Phones get 35% fewer plants, 1024px shadow maps and a lower pixel ratio.
+- Only animals cast real shadows; trees get painted soft spots, which is far cheaper.
 
-A web page cannot lock a child out of the device. What this does:
+## 6. Honest limits of the "safe" claim
 
-- blocks context menu, text selection, drag, pinch-zoom, scroll, and swipe
-- swallows plain keystrokes so typing does nothing but play
-- requests fullscreen and a screen wake lock
+A web page cannot lock a child out of the device. The zoo blocks the context menu,
+pinch-zoom and text selection, and asks for fullscreen on phones. It cannot stop `Esc`,
+the home gesture, Alt+Tab or the power button. Installing to the Home Screen gets closest.
 
-What it cannot do: stop `Esc`, the iPad home gesture, Alt+Tab, or the power button. Browsers
-deliberately forbid that. Installing to the Home Screen (`display: fullscreen`) gets you closest.
-Say this plainly on the site — parents trust honest copy, and overclaiming invites bad reviews.
+Speech uses the device's own voices. `hi-IN` is common; `mr-IN` often is not, so Marathi
+falls back to a Hindi voice. Recorded audio is the single biggest quality upgrade.
 
-Speech uses the device's own voices. `hi-IN` is common on Android and iOS; `mr-IN` often is not, so
-Marathi falls back to a Hindi voice, which mispronounces some words. If Marathi audio matters,
-record ~50 short MP3s in a real voice and swap `say()` for an `Audio()` playback map. That is the
-single biggest quality upgrade available.
+## 7. Ads and analytics — read before you monetise
 
-## 6. Ads and analytics — read before you monetise
+Content made for children is legally special: **COPPA** (US), GDPR-K (EU) and India's
+**DPDP Act 2023**, which requires verifiable parental consent before processing a child's
+data and bans behavioural advertising to children.
 
-Content made for children is legally special: **COPPA** in the US, GDPR-K in the EU, and India's
-**DPDP Act 2023**, which requires verifiable parental consent before processing a child's data and
-bans behavioural advertising to children outright.
+1. **No ads inside the zoo.** A child tapping animals will tap every ad.
+2. Put ads only on written pages for parents, marked child-directed, non-personalised.
+3. Analytics: cookieless (Plausible, Cloudflare Web Analytics) or GA4 with signals off.
+   The credits dialog says nothing leaves the device — keep that true.
 
-Practical rules:
-
-1. **No ads on the toy screen.** Not just for law — a toddler mashing keys will click every ad, and
-   ad networks ban accounts for invalid traffic.
-2. Put AdSense only on the **written pages for parents** (guides, about, blog). Mark the child-facing
-   URLs as child-directed in AdSense and disable personalised ads for them.
-3. Analytics: GA4 with `allow_google_signals: false` and IP anonymisation, or a cookieless tool like
-   Plausible / Cloudflare Web Analytics. Store no IDs, no fingerprinting — then the privacy line at
-   the bottom of the page is true.
-4. Better revenue fits for this audience: a paid "premium chart pack", brand sponsorships from
-   toy/parenting companies, or an affiliate link to a real letter-chart product.
-
-None of this is legal advice — get an actual lawyer's read before you turn ads on.
-
-## 7. Content pages for SEO (next build)
-
-The toy alone ranks for nothing; the written pages do the ranking and feed the toy.
-
-```
-/                 the toy (thin text on purpose)
-/about            who made it, why, privacy in plain words
-/guides/          hub
-  marathi-mulakshare-chart-for-kids
-  hindi-varnamala-with-pictures
-  screen-time-for-toddlers-what-actually-helps
-  keyboard-safe-websites-for-babies
-/videos           embedded parent videos + a "tag us" call to action
-```
-
-Each guide: one clear question in the H1, a real answer in the first 100 words, an embedded
-Takatak link, `Article` + `FAQPage` JSON-LD. Trilingual pages need `hreflang` (`en-IN`, `mr`, `hi`)
-and separate URLs — never machine-translate and never stack three languages on one URL.
-
-## 8. Roadmap, in the order I would build it
-
-1. Icons, real domain, deploy. Ship it this week.
-2. Recorded Marathi and Hindi audio (biggest felt improvement).
-3. Themes as JSON asset packs — same swap pattern as a persona-based product, so a theme is data,
-   not code.
-4. "Chart mode": after every 26 taps, show the full varnamala grid for two seconds.
-5. Parent report: taps per day, letters seen most — all local, nothing sent anywhere.
-6. Content pages, then ads on those pages only.
+None of this is legal advice.
