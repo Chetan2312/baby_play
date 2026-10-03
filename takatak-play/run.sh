@@ -43,14 +43,48 @@ run_game() {
     echo "first run: letting Godot scan the project…"
     "$godot" --headless --path game --editor --quit >/dev/null 2>&1 || true
   fi
-  "$godot" --path game -- "$@"
+  # Pi 5 GPU = OpenGL ES 3.1 (no desktop GL 3.3). Ask for GLES directly: Godot's
+  # automatic GL→GLES fallback on X11 aborts on the Pi.
+  local render=()
+  [[ "$(uname -m)" == "aarch64" ]] && render=(--rendering-driver opengl3_es)
+  # Pi OS desktop is Wayland (labwc): native Wayland first, X11 (XWayland) as retry.
+  # Override: GODOT_DISPLAY=x11 ./run.sh game
+  local displays=(x11)
+  if [[ -n "${GODOT_DISPLAY:-}" ]]; then
+    displays=("$GODOT_DISPLAY")
+  elif [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    displays=(wayland x11)
+  fi
+  local d rc t0
+  for d in "${displays[@]}"; do
+    echo "starting Godot: display=$d ${render[*]}"
+    t0=$SECONDS
+    set +e
+    "$godot" --display-driver "$d" "${render[@]}" --path game -- "$@"
+    rc=$?
+    set -e
+    # normal quit, or it ran for a while (not a startup failure) → done
+    if [[ $rc -eq 0 ]] || (( SECONDS - t0 > 10 )); then
+      return $rc
+    fi
+    echo "Godot failed to start with display=$d (exit $rc)"
+  done
+  return 1
 }
 
-with_background() {  # run "$1…" in background while the game runs, stop it afterwards
-  local bg_pid
+BG_PID=""
+stop_background() {
+  if [[ -n "$BG_PID" ]]; then
+    kill -INT "$BG_PID" 2>/dev/null || true
+    wait "$BG_PID" 2>/dev/null || true
+    BG_PID=""
+  fi
+}
+
+with_background() {  # run "$@" in background while the game runs, stop it afterwards
   "$@" &
-  bg_pid=$!
-  trap 'kill -INT $bg_pid 2>/dev/null || true; wait $bg_pid 2>/dev/null || true' EXIT
+  BG_PID=$!
+  trap stop_background EXIT
   sleep 2
 }
 
