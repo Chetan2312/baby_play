@@ -16,6 +16,7 @@ from main import start_pipeline, status_messages  # noqa: E402
 from takatak import gestures as G  # noqa: E402
 from takatak.audio import AudioPlayer  # noqa: E402
 from takatak.config import load_config, path  # noqa: E402
+from takatak.lifecycle import Shutdown  # noqa: E402
 from takatak.perf import PerfLog  # noqa: E402
 from takatak.player import KeypointSmoother, PlayerTracker  # noqa: E402
 from takatak.text import TextRenderer  # noqa: E402
@@ -33,6 +34,7 @@ def main():
         cfg["camera"] = args.camera
     if args.windowed:
         cfg["display"]["fullscreen"] = False
+    stop = Shutdown()
 
     pygame.init()
     screen = open_display(cfg["display"])
@@ -52,7 +54,7 @@ def main():
     u = r.u
     running = True
     try:
-        while running:
+        while running and not stop.requested:
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT or (ev.type == pygame.KEYDOWN and ev.key in (pygame.K_ESCAPE, pygame.K_q)):
                     running = False
@@ -115,11 +117,9 @@ def main():
             perf.maybe_log(now, f"cam={cam.active}")
             clock.tick(cfg["display"]["fps"])
     finally:
-        cam.stop()
-        inf.stop()
-        cam.join(timeout=2)
-        inf.join(timeout=2)
-        pygame.quit()
+        print("[exit] closing camera and Hailo…", flush=True)
+        stop.shutdown(cam.stop, inf.stop, lambda: cam.join(timeout=2),
+                      lambda: inf.join(timeout=2), pygame.quit)
 
 
 if __name__ == "__main__":

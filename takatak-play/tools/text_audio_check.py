@@ -17,6 +17,7 @@ from PIL import Image  # noqa: E402
 
 from takatak.audio import AudioPlayer  # noqa: E402
 from takatak.config import load_config, load_content, path  # noqa: E402
+from takatak.lifecycle import Shutdown  # noqa: E402
 from takatak.text import TextRenderer  # noqa: E402
 from takatak.ui import BG, LANG_COLORS, open_display  # noqa: E402
 
@@ -49,6 +50,7 @@ def main():
     prompts, lines = load_content(cfg)
     langs = cfg["game"]["languages"]
     os.makedirs(path("logs"), exist_ok=True)
+    stop = Shutdown()
 
     pygame.init()
     if args.png_only:
@@ -70,10 +72,11 @@ def main():
     u = H / 1080
     clock = pygame.time.Clock()
     while True:
+        if stop.requested:
+            stop.shutdown(audio.stop, pygame.quit)
         for ev in pygame.event.get():
-            if ev.type == pygame.QUIT or (ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE):
-                pygame.quit()
-                return
+            if ev.type == pygame.QUIT or (ev.type == pygame.KEYDOWN and ev.key in (pygame.K_ESCAPE, pygame.K_q)):
+                stop.shutdown(audio.stop, pygame.quit)
             if ev.type == pygame.KEYDOWN and ev.key == pygame.K_SPACE:
                 i = (i + 1) % len(clips)
                 started = False

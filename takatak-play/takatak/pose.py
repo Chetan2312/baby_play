@@ -108,10 +108,10 @@ class InferenceThread(threading.Thread):
         self.perf = perf
         self.error = None
         self.status = "loading pose model…"
-        self._stop = threading.Event()
+        self._quit = threading.Event()
 
     def stop(self):
-        self._stop.set()
+        self._quit.set()
 
     def run(self):
         try:
@@ -122,7 +122,7 @@ class InferenceThread(threading.Thread):
         self.status = ""
         seq = 0
         try:
-            while not self._stop.is_set():
+            while not self._quit.is_set():
                 seq, bundle = self.camera_slot.wait_newer(seq, timeout=0.5)
                 if bundle is None:
                     continue

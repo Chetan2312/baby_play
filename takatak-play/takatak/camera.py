@@ -70,7 +70,7 @@ class CameraThread(threading.Thread):
         self.status = "starting camera…"
         self.active = None
         self._want = cfg["camera"]
-        self._stop = threading.Event()
+        self._quit = threading.Event()
         self._switch = threading.Event()
 
     # UI thread API
@@ -81,7 +81,7 @@ class CameraThread(threading.Thread):
         self._switch.set()
 
     def stop(self):
-        self._stop.set()
+        self._quit.set()
         self._switch.set()
 
     # thread
@@ -130,7 +130,7 @@ class CameraThread(threading.Thread):
         except ImportError:
             self.error = "picamera2 not installed (run install.sh on the Pi)"
             return
-        while not self._stop.is_set():
+        while not self._quit.is_set():
             which = self._want
             if which == "auto":
                 self.status = "auto-selecting camera…"
@@ -174,13 +174,13 @@ class VideoThread(threading.Thread):
         self.error = None
         self.status = ""
         self.active = "video"
-        self._stop = threading.Event()
+        self._quit = threading.Event()
 
     def request_switch(self, which=None):
         pass
 
     def stop(self):
-        self._stop.set()
+        self._quit.set()
 
     def run(self):
         import cv2
@@ -189,7 +189,7 @@ class VideoThread(threading.Thread):
             self.error = f"cannot open video {self.path}"
             return
         period = 1.0 / (cap.get(cv2.CAP_PROP_FPS) or 30.0)
-        while not self._stop.is_set():
+        while not self._quit.is_set():
             t0 = time.monotonic()
             ok, frame = cap.read()
             if not ok:

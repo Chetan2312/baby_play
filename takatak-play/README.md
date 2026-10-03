@@ -1,4 +1,4 @@
-# Takatak Play — Demo 1: Simon Says, Body Parts (trilingual)
++# Takatak Play — Demo 1: Simon Says, Body Parts (trilingual)
 
 A big-screen motion game for kids aged 2–7. A Raspberry Pi 5 drives a TV or
 projector over HDMI. A camera faces the kids, pose estimation runs on the
@@ -145,6 +145,7 @@ after N rounds → FINISH (trophy, "You did 8!") → ATTRACT
 | Devanagari looks broken (detached matras) | `sudo apt install libraqm0`; `./run.sh text` should show `raqm=OK` |
 | No sound | Select HDMI as the output device; check `./run.sh text` |
 | Window doesn't appear over SSH | Log in to the desktop on the TV first; `run.sh` attaches to it |
+| Esc/Q ignored | The fullscreen window has no keyboard focus (e.g. started from SSH): click it, or press Ctrl+C in the terminal. Shutdown is forced after 5 s if the camera or Hailo hangs |
 | Low fps | Use `D` to see cam/inf/ui fps; try `--pcie-gen3`; lower `camera_opts.main_size` |
 
 See [docs/field_test_log.md](docs/field_test_log.md) for the per-session field-test template (M5–M7).

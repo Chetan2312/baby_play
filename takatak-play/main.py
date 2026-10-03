@@ -14,6 +14,7 @@ from takatak.audio import AudioPlayer
 from takatak.camera import CameraThread, VideoThread
 from takatak.config import load_config, load_content, path
 from takatak.game import Game
+from takatak.lifecycle import Shutdown
 from takatak.perf import PerfLog
 from takatak.player import KeypointSmoother, PlayerTracker
 from takatak.pose import InferenceThread
@@ -77,6 +78,7 @@ def main(argv=None):
     cfg = build(args)
     prompts, lines = load_content(cfg)
     os.makedirs(path("logs"), exist_ok=True)
+    stop = Shutdown()
 
     pygame.mixer.pre_init(cfg["audio"]["frequency"], -16, 2, cfg["audio"]["buffer"])
     pygame.init()
@@ -102,7 +104,7 @@ def main(argv=None):
     last = time.monotonic()
     running = True
     try:
-        while running:
+        while running and not stop.requested:
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
                     running = False
@@ -158,14 +160,9 @@ def main(argv=None):
             perf.maybe_log(now, f"cam={cam.active} state={game.state.value}")
             clock.tick(cfg["display"]["fps"])
     finally:
-        game._end_session()
-        cam.stop()
-        inf.stop()
-        audio.stop()
-        cam.join(timeout=2)
-        inf.join(timeout=2)
-        pygame.quit()
-    return 0
+        print("[exit] closing camera, Hailo, audio…", flush=True)
+        stop.shutdown(game._end_session, cam.stop, inf.stop, audio.stop,
+                      lambda: cam.join(timeout=2), lambda: inf.join(timeout=2), pygame.quit)
 
 
 if __name__ == "__main__":
