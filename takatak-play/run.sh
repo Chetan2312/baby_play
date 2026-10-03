@@ -47,12 +47,13 @@ run_game() {
   # automatic GL→GLES fallback on X11 aborts on the Pi.
   local render=()
   [[ "$(uname -m)" == "aarch64" ]] && render=(--rendering-driver opengl3_es)
-  # Pi OS desktop is Wayland (labwc): native Wayland first, X11 (XWayland) as retry.
-  # Override: GODOT_DISPLAY=x11 ./run.sh game
+  # Display: X11 (XWayland) by default. Godot 4.4's native Wayland can't create an
+  # EGL display on the Pi 5. On a PC desktop, Wayland first is fine.
+  # Override: GODOT_DISPLAY=wayland ./run.sh game
   local displays=(x11)
   if [[ -n "${GODOT_DISPLAY:-}" ]]; then
     displays=("$GODOT_DISPLAY")
-  elif [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+  elif [[ -n "${WAYLAND_DISPLAY:-}" && "$(uname -m)" != "aarch64" ]]; then
     displays=(wayland x11)
   fi
   local d rc t0
@@ -86,6 +87,11 @@ with_background() {  # run "$@" in background while the game runs, stop it after
   BG_PID=$!
   trap stop_background EXIT
   sleep 2
+  if ! kill -0 "$BG_PID" 2>/dev/null; then
+    BG_PID=""
+    echo "background service exited (see the error above); not starting the game"
+    exit 1
+  fi
 }
 
 cmd="${1:-help}"

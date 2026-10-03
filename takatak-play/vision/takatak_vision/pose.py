@@ -34,6 +34,9 @@ class PoseEngine:
         try:
             self.hailo = Hailo(hef)
         except Exception as e:  # noqa: BLE001
+            if "OUT_OF_PHYSICAL_DEVICES" in str(e) or "not enough free devices" in str(e):
+                raise PoseError("Hailo AI HAT is busy: another program is using it "
+                                "(old vision service? pkill -INT -f takatak_vision.main)") from e
             raise PoseError(f"Hailo could not load the model: {e}. "
                             "Check the AI HAT (hailortcli fw-control identify) and that the HEF "
                             "is compiled for Hailo-8, not Hailo-8L.") from e
