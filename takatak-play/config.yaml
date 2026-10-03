@@ -1,0 +1,141 @@
+# Takatak Play — Demo 1 configuration. Every tunable lives here.
+
+camera: wide                      # wide | noir | auto
+camera_index: { wide: 0, noir: 1 }  # fallback if sensor model names can't be matched
+camera_opts:
+  main_size: [1280, 720]          # display stream (16:9). ISP does the scaling.
+  framerate: 30
+  auto_brightness_threshold: 60   # camera: auto → mean luma (0-255) below this picks noir
+  auto_probe_frames: 15
+  controls: {}                    # extra libcamera controls, e.g. { AeMeteringMode: 0 }
+
+display:
+  fullscreen: true
+  width: 1920
+  height: 1080
+  mirror: true                    # mirrors the rendered image only, never keypoint labels
+  show_skeleton: false
+  fps: 30
+  show_debug: false               # fps / state overlay (toggle with D)
+
+model: models/yolov8s_pose.hef
+
+inference:
+  input_size: 640
+  swap_rb: true                   # Picamera2 "RGB888" is BGR in memory; model wants RGB
+  min_person_conf: 0.5
+  min_kp_conf: 0.3
+  nms_iou: 0.7
+  max_people: 10
+  pad_value: 114                  # letterbox colour
+
+smoothing:
+  ema_alpha: 0.5
+  face_memory_s: 0.5              # keep last confident face keypoints while a hand covers the face
+
+game:
+  languages: [mr, hi, en]         # order spoken per prompt
+  language_mode: all              # all | single | rotate
+  single_language: mr
+  rounds: 10
+  prompt_timeout_s: 8             # counted only while no voice clip is playing
+  hold_frames: 6                  # gesture must hold this many consecutive inference frames
+  hold_miss_frames: 1             # tolerated dropped frames inside a hold
+  celebrate_s: 2.0
+  difficulty: toddler             # toddler | kid  (prompt pool + tolerances)
+  attract_detect_s: 1.0           # person seen this long → greeting
+  greet_s: 2.5
+  intro_arm_s: 1.0                # after a prompt starts, wait this long before listening
+  rearm_gap_s: 1.5                # arm without a neutral pose after this long
+  hint_attempts: 1                # timeouts that give a hint before moving on
+  absent_pause_s: 3.0             # nobody seen → pause, "come to the magic mat"
+  resume_detect_s: 0.5
+  absent_abandon_s: 60            # paused this long → back to attract
+  finish_s: 7.0
+  seed: null                      # set an int for repeatable prompt order
+
+player:
+  mode: largest                   # largest | center
+  lost_grace_s: 0.7               # keep the active player through short dropouts
+  max_jump: 0.6                   # max centre move per frame, as a fraction of bbox height
+  max_players: 1                  # Demo 2: >1 for race mode
+
+# Tolerances in units of S (shoulder width). Toddler is more generous.
+gestures:
+  toddler:
+    nose_dist: 0.8
+    ear_dist: 0.8
+    head_above_eyes: 0.1
+    head_max_above_eyes: 1.5
+    head_x: 1.0
+    hands_up_above_nose: 0.3
+    tummy_frac: 0.6
+    tummy_dist: 0.9
+    shoulder_dist: 0.8
+    knee_dist: 1.0
+    clap_dist: 0.55
+    clap_y_margin: 0.5
+    left_up_above_nose: 0.0
+    other_hand_below_shoulders: 0.0
+    neutral_below_shoulders: 1.1
+    torso_ratio: 1.2              # hip estimate when hips are out of frame
+    nose_above_shoulders: 0.8     # nose estimate when the face is hidden
+    scale_bbox_frac: 0.25         # S fallback when shoulders are missing
+    scale_min_bbox_frac: 0.15     # S floor (child turned sideways)
+  kid:
+    nose_dist: 0.6
+    ear_dist: 0.6
+    head_above_eyes: 0.2
+    head_max_above_eyes: 1.5
+    head_x: 0.8
+    hands_up_above_nose: 0.5
+    tummy_frac: 0.6
+    tummy_dist: 0.7
+    shoulder_dist: 0.6
+    knee_dist: 0.8
+    clap_dist: 0.4
+    clap_y_margin: 0.3
+    left_up_above_nose: 0.0
+    other_hand_below_shoulders: 0.0
+    neutral_below_shoulders: 1.1
+    torso_ratio: 1.4
+    nose_above_shoulders: 0.8
+    scale_bbox_frac: 0.25
+    scale_min_bbox_frac: 0.15
+
+audio:
+  frequency: 44100
+  buffer: 1024
+  language_gap_s: 0.3
+  voice_volume: 1.0
+  sfx_volume: 0.7
+
+fonts:
+  # searched in order; assets/fonts first so you can drop in your own
+  devanagari:
+    - assets/fonts/NotoSansDevanagari-Bold.ttf
+    - /usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf
+    - /usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf
+    - /usr/share/fonts/truetype/noto/NotoSansDevanagariUI-Bold.ttf
+  latin:
+    - assets/fonts/NotoSans-Bold.ttf
+    - /usr/share/fonts/truetype/noto/NotoSans-Bold.ttf
+    - /usr/share/fonts/truetype/noto/NotoSans-Regular.ttf
+    - /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+
+content:
+  prompts: content/prompts.yaml
+  lines: content/lines.yaml
+
+paths:
+  audio: assets/audio                       # real recorded voice: <lang>/<id>.wav
+  audio_placeholder: assets/audio_placeholder  # espeak-ng output (gitignored)
+  sfx: assets/sfx                           # success.wav, try_again.wav, start.wav
+  stats_dir: logs/stats
+  perf_log: logs/perf.log
+
+perf:
+  log_every_s: 5
+
+privacy:
+  save_frames: false              # must stay false outside dev. The game never writes frames.

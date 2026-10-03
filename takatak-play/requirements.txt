@@ -1,0 +1,5 @@
+# Installed into .env by install.sh.
+# NOT here on purpose (they come from apt, matched to picamera2/hailo builds):
+#   picamera2, hailort/hailo_platform, numpy, pillow, pygame, opencv
+pyyaml>=6.0
+pytest>=7.0

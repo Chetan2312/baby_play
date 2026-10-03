@@ -1,0 +1,16 @@
+# venv
+.env/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# runtime output: logs, stats, dev clips (privacy: never commit video)
+logs/*
+!logs/.gitkeep
+
+# generated placeholder voices (real recordings in assets/audio/ ARE committed)
+assets/audio_placeholder/
+
+# model binaries (fetched by tools/fetch_model.sh)
+models/*.hef
+models/*.part
