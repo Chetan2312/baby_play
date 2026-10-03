@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from takatak.postprocess import decode_yolov8_pose, split_outputs
+from takatak_vision.postprocess import decode_yolov8_pose, split_outputs
 
 IN = (640, 640)
 BINS = 16

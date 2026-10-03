@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
-# Run inside the project venv (.env). Works from the desktop or over SSH.
-#   ./run.sh [game args]      the game (e.g. --camera noir --difficulty kid --windowed)
-#   ./run.sh debug [args]     tools/pose_debug.py
-#   ./run.sh text  [args]     tools/text_audio_check.py
-#   ./run.sh audio [args]     tools/make_placeholder_audio.py
-#   ./run.sh record [args]    tools/record_test_clip.py (DEV ONLY)
-#   ./run.sh test             pytest
+# Everything runs inside the project venv (.env). Works from the desktop or over SSH.
+#   ./run.sh vision [args]    vision service, e.g. --camera noir | --video clip.mp4
+#   ./run.sh mock [args]      mock vision server (synthetic child / --auto / --replay file)
+#   ./run.sh debug [args]     pygame debug viewer (--mock works without hardware)
+#   ./run.sh game [args]      Godot client, e.g. --windowed --deva-test --lang=hi --vision=ws://pi:8765
+#   ./run.sh play [args]      vision service + game; stops the service when the game exits
+#   ./run.sh play-mock        mock server + game
+#   ./run.sh record [args]    record a session (keypoints only by default)
+#   ./run.sh clip [args]      DEV ONLY: record a video clip (needs --i-have-consent)
+#   ./run.sh content          draft voices → OGG → build JSON → lint
+#   ./run.sh test             pytest (vision + content tools)
 #   ./run.sh check            cameras + Hailo hardware check
 set -euo pipefail
 cd "$(dirname "$0")"
+ROOT=$(pwd)
 VENV_DIR="${VENV_DIR:-.env}"
-PY="$VENV_DIR/bin/python"
+PY="$ROOT/$VENV_DIR/bin/python"
 [[ -x "$PY" ]] || { echo "venv $VENV_DIR missing: run ./install.sh first"; exit 1; }
 
-# Started over SSH? Attach to the Pi's desktop session so the TV shows the window.
+# Started over SSH? Attach to the Pi's desktop session so windows open on the TV.
 if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
   export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
   for s in "$XDG_RUNTIME_DIR"/wayland-*; do
@@ -22,17 +27,53 @@ if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
   export DISPLAY=:0
 fi
 
-cmd="${1:-game}"
+find_godot() {
+  for g in "${GODOT:-}" "$ROOT/.godot-bin/godot" "$(command -v godot4 || true)" "$(command -v godot || true)"; do
+    [[ -n "$g" && -x "$g" ]] && { echo "$g"; return 0; }
+  done
+  echo "Godot not found: ./install.sh --with-godot, or GODOT=/path/to/godot ./run.sh game" >&2
+  return 1
+}
+
+run_game() {
+  local godot
+  godot=$(find_godot)
+  "$PY" tools/content_build.py >/dev/null
+  if [[ ! -d game/.godot ]]; then
+    echo "first run: letting Godot scan the project…"
+    "$godot" --headless --path game --editor --quit >/dev/null 2>&1 || true
+  fi
+  "$godot" --path game -- "$@"
+}
+
+with_background() {  # run "$1…" in background while the game runs, stop it afterwards
+  local bg_pid
+  "$@" &
+  bg_pid=$!
+  trap 'kill -INT $bg_pid 2>/dev/null || true; wait $bg_pid 2>/dev/null || true' EXIT
+  sleep 2
+}
+
+cmd="${1:-help}"
+[[ $# -gt 0 ]] && shift
 case "$cmd" in
-  debug)  shift; exec "$PY" tools/pose_debug.py "$@" ;;
-  text)   shift; exec "$PY" tools/text_audio_check.py "$@" ;;
-  audio)  shift; exec "$PY" tools/make_placeholder_audio.py "$@" ;;
-  record) shift; exec "$PY" tools/record_test_clip.py "$@" ;;
-  test)   shift; exec "$PY" -m pytest -q tests "$@" ;;
+  vision)    cd vision && exec "$PY" -m takatak_vision.main "$@" ;;
+  mock)      exec "$PY" vision/tools/mock_server.py "$@" ;;
+  debug)     exec "$PY" vision/tools/debug_view.py "$@" ;;
+  record)    exec "$PY" vision/tools/record_session.py "$@" ;;
+  clip)      exec "$PY" vision/tools/record_clip.py "$@" ;;
+  game)      run_game "$@" ;;
+  play)      with_background bash -c "cd '$ROOT/vision' && exec '$PY' -m takatak_vision.main"; run_game "$@" ;;
+  play-mock) with_background "$PY" vision/tools/mock_server.py; run_game --windowed "$@" ;;
+  content)
+    "$PY" tools/tts_drafts.py
+    "$PY" tools/voice_pipeline.py
+    "$PY" tools/content_build.py
+    exec "$PY" tools/content_lint.py ;;
+  test)      exec "$PY" -m pytest -q vision/tests tools/tests "$@" ;;
   check)
     hailortcli fw-control identify || true
     rpicam-hello --list-cameras || true
     exec "$PY" -c "from picamera2 import Picamera2; [print(c) for c in Picamera2.global_camera_info()]" ;;
-  game)   shift || true; exec "$PY" main.py "$@" ;;
-  *)      exec "$PY" main.py "$@" ;;
+  *) sed -n '2,13p' "$0" ;;
 esac

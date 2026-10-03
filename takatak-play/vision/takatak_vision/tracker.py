@@ -1,9 +1,12 @@
-"""Active player selection, simple tracking and keypoint smoothing.
+"""Multi-person tracking with stable IDs, active-player selection, keypoint smoothing.
 
-Returns a LIST of players so Demo 2 (two kids racing) can reuse this.
+Modes:
+  single: one active player (largest or most central), sticky until lost.
+  duo:    two active players, one per half of the play zone in DISPLAY space
+          (left mat / right mat), so siblings can stand side by side.
 """
 import itertools
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -12,17 +15,22 @@ from .gestures import FACE
 
 @dataclass(eq=False)
 class Person:
-    bbox: np.ndarray      # x1, y1, x2, y2 (frame pixels)
+    bbox: np.ndarray      # x1, y1, x2, y2 (lores frame pixels)
     score: float
     kp: np.ndarray        # (17, 3) x, y, conf
 
 
-@dataclass
-class Player:
-    track_id: int
+@dataclass(eq=False)
+class Track:
+    id: int
     bbox: np.ndarray
     kp: np.ndarray
     score: float
+    last_seen: float
+    visible: bool = True
+    active: bool = False
+    slot: int = -1        # active slot index (0 = single/left, 1 = right)
+    extra: dict = field(default_factory=dict)
 
 
 def _center(b):
@@ -33,55 +41,92 @@ def _area(b):
     return max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
 
 
-class PlayerTracker:
-    def __init__(self, pcfg, frame_size=(640, 360)):
-        self.mode = pcfg["mode"]
-        self.lost_grace_s = pcfg["lost_grace_s"]
-        self.max_jump = pcfg["max_jump"]
-        self.max_players = pcfg.get("max_players", 1)
+class Tracker:
+    def __init__(self, tcfg, frame_size=(640, 360), mirror=True):
+        self.select = tcfg["select"]               # largest | center
+        self.lost_grace_s = tcfg["lost_grace_s"]
+        self.max_jump = tcfg["max_jump"]
+        self.mode = tcfg.get("mode", "single")
         self.frame_size = frame_size
+        self.mirror = mirror
         self._ids = itertools.count(1)
-        self.tracks = []  # dicts: id, bbox, last_seen
+        self.tracks = []
+        self.active = {}  # slot -> track id
 
     def reset(self):
         self.tracks = []
+        self.active = {}
 
-    def _pick(self, persons):
-        if self.mode == "center":
+    def set_mode(self, mode):
+        if mode != self.mode:
+            self.mode = mode
+            self.active = {}
+
+    def _display_x(self, b):
+        x = _center(b)[0] / self.frame_size[0]
+        return 1.0 - x if self.mirror else x
+
+    def _match(self, persons, now):
+        persons = list(persons)
+        for t in self.tracks:
+            t.visible = False
+        alive = []
+        for t in sorted(self.tracks, key=lambda t: -t.last_seen):
+            if now - t.last_seen > self.lost_grace_s:
+                continue
+            alive.append(t)
+            if not persons:
+                continue
+            c = _center(t.bbox)
+            h = max(1.0, t.bbox[3] - t.bbox[1])
+            best = min(persons, key=lambda p: np.hypot(*(_center(p.bbox) - c)))
+            if np.hypot(*(_center(best.bbox) - c)) <= self.max_jump * h:
+                persons.remove(best)
+                t.bbox, t.kp, t.score, t.last_seen, t.visible = best.bbox, best.kp, best.score, now, True
+        for p in persons:
+            alive.append(Track(next(self._ids), p.bbox, p.kp, p.score, now))
+        self.tracks = alive
+
+    def _pick(self, candidates):
+        if not candidates:
+            return None
+        if self.select == "center":
             fc = np.array(self.frame_size) / 2
-            return min(persons, key=lambda p: np.hypot(*(_center(p.bbox) - fc)))
-        return max(persons, key=lambda p: _area(p.bbox))
+            return min(candidates, key=lambda t: np.hypot(*(_center(t.bbox) - fc)))
+        return max(candidates, key=lambda t: _area(t.bbox))
+
+    def _assign(self):
+        by_id = {t.id: t for t in self.tracks}
+        slots = [0] if self.mode == "single" else [0, 1]
+        for s in list(self.active):
+            if s not in slots or self.active[s] not in by_id:
+                del self.active[s]      # lost beyond grace (or mode changed)
+        taken = set(self.active.values())
+        for s in slots:
+            if s in self.active:
+                continue
+            cands = [t for t in self.tracks if t.visible and t.id not in taken]
+            if self.mode == "duo":
+                cands = [t for t in cands if (self._display_x(t.bbox) < 0.5) == (s == 0)]
+            pick = self._pick(cands)
+            if pick is not None:
+                self.active[s] = pick.id
+                taken.add(pick.id)
+        for t in self.tracks:
+            t.active, t.slot = False, -1
+        for s, tid in self.active.items():
+            by_id[tid].active, by_id[tid].slot = True, s
 
     def update(self, persons, now):
-        persons = list(persons)
-        players = []
-        alive = []
-        for t in self.tracks:
-            if now - t["last_seen"] > self.lost_grace_s:
-                continue  # lost: a new detection gets a new identity
-            match = None
-            if persons:
-                c = _center(t["bbox"])
-                h = max(1.0, t["bbox"][3] - t["bbox"][1])
-                best = min(persons, key=lambda p: np.hypot(*(_center(p.bbox) - c)))
-                if np.hypot(*(_center(best.bbox) - c)) <= self.max_jump * h:
-                    match = best
-            if match is not None:
-                persons.remove(match)
-                t["bbox"], t["last_seen"] = match.bbox, now
-                players.append(Player(t["id"], match.bbox, match.kp, match.score))
-                alive.append(t)
-            else:
-                alive.append(t)  # keep identity through a short dropout
-        self.tracks = alive
-        while persons and len(self.tracks) < self.max_players:
-            p = self._pick(persons)
-            persons.remove(p)
-            t = {"id": next(self._ids), "bbox": p.bbox, "last_seen": now}
-            self.tracks.append(t)
-            players.append(Player(t["id"], p.bbox, p.kp, p.score))
-        order = {t["id"]: i for i, t in enumerate(self.tracks)}
-        return sorted(players, key=lambda p: order[p.track_id])
+        """→ visible tracks (active ones first, by slot)."""
+        self._match(persons, now)
+        self._assign()
+        vis = [t for t in self.tracks if t.visible]
+        return sorted(vis, key=lambda t: (not t.active, t.slot, t.id))
+
+    @property
+    def active_visible(self):
+        return [t for t in self.tracks if t.active and t.visible]
 
 
 class KeypointSmoother:
@@ -91,17 +136,10 @@ class KeypointSmoother:
         self.alpha = scfg["ema_alpha"]
         self.face_memory_s = scfg["face_memory_s"]
         self.min_conf = min_conf
-        self.reset()
-
-    def reset(self):
-        self.track_id = None
         self.prev = None
         self.last_good = {}
 
-    def update(self, kp, now, track_id=None):
-        if track_id != self.track_id:
-            self.reset()
-            self.track_id = track_id
+    def update(self, kp, now):
         kp = np.asarray(kp, dtype=np.float64)
         out = kp.copy()
         for i in range(len(kp)):
@@ -115,3 +153,20 @@ class KeypointSmoother:
                     out[i] = saved
         self.prev = out
         return out
+
+
+class SmootherBank:
+    """One smoother per track id; forgets ids that disappear."""
+
+    def __init__(self, scfg, min_conf):
+        self.scfg, self.min_conf = scfg, min_conf
+        self.by_id = {}
+
+    def update(self, tracks, now):
+        ids = {t.id for t in tracks}
+        for tid in list(self.by_id):
+            if tid not in ids:
+                del self.by_id[tid]
+        for t in tracks:
+            sm = self.by_id.setdefault(t.id, KeypointSmoother(self.scfg, self.min_conf))
+            t.kp = sm.update(t.kp, now)

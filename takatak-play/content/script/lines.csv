@@ -1,0 +1,163 @@
+line_id,category,variant,lang,text,direction,uses_name
+greeting_01,greeting,1,mr,नमस्कार! चला खेळूया!,excited,false
+greeting_01,greeting,1,hi,नमस्ते! चलो खेलें!,excited,false
+greeting_01,greeting,1,en,Hi! Let's play!,excited,false
+greeting_01,greeting,2,mr,हाय! आज आपण मज्जा करूया!,excited,true
+greeting_01,greeting,2,hi,हाय! आज हम मज़े करेंगे!,excited,true
+greeting_01,greeting,2,en,Hello friend! Ready to play?,excited,true
+attract_01,callback,1,mr,जादूच्या चटईवर ये!,inviting,false
+attract_01,callback,1,hi,जादुई चटाई पर आओ!,inviting,false
+attract_01,callback,1,en,Come to the magic mat!,inviting,false
+callback_01,callback,1,mr,"चल, परत चटईवर ये!",inviting,true
+callback_01,callback,1,hi,"चलो, वापस चटाई पर आओ!",inviting,true
+callback_01,callback,1,en,Come back to the magic mat!,inviting,true
+callback_02,callback,1,mr,"अरे, कुठे गेलं माझं मित्र? परत ये!",playful,true
+callback_02,callback,1,hi,"अरे, मेरा दोस्त कहाँ गया? वापस आओ!",playful,true
+callback_02,callback,1,en,Where is my friend? Come back!,playful,true
+ready_01,transition,1,mr,तयारी करतोय…,calm,false
+ready_01,transition,1,hi,तैयारी हो रही है…,calm,false
+ready_01,transition,1,en,Getting ready…,calm,false
+simon_intro,transition,1,mr,चला खेळूया! मी सांगतो तसं कर!,playful,false
+simon_intro,transition,1,hi,"चलो खेलें! जो मैं कहूँ, वो करो!",playful,false
+simon_intro,transition,1,en,Let's play! Do what I say!,playful,false
+simon_nose,prompt,1,mr,नाकाला हात लाव!,playful,true
+simon_nose,prompt,1,hi,अपनी नाक छुओ!,playful,true
+simon_nose,prompt,1,en,Touch your nose!,playful,true
+simon_head,prompt,1,mr,डोक्याला हात लाव!,playful,true
+simon_head,prompt,1,hi,अपना सिर छुओ!,playful,true
+simon_head,prompt,1,en,Touch your head!,playful,true
+simon_ear,prompt,1,mr,कानाला हात लाव!,playful,true
+simon_ear,prompt,1,hi,अपना कान छुओ!,playful,true
+simon_ear,prompt,1,en,Touch your ear!,playful,true
+simon_hands_up,prompt,1,mr,हात वर कर!,playful,true
+simon_hands_up,prompt,1,hi,हाथ ऊपर करो!,playful,true
+simon_hands_up,prompt,1,en,Hands up high!,playful,true
+simon_tummy,prompt,1,mr,पोटाला हात लाव!,playful,true
+simon_tummy,prompt,1,hi,अपना पेट छुओ!,playful,true
+simon_tummy,prompt,1,en,Touch your tummy!,playful,true
+simon_shoulders,prompt,1,mr,हात खांद्यावर ठेव!,playful,true
+simon_shoulders,prompt,1,hi,हाथ कंधों पर रखो!,playful,true
+simon_shoulders,prompt,1,en,Hands on your shoulders!,playful,true
+simon_knees,prompt,1,mr,गुडघ्यांना हात लाव!,playful,true
+simon_knees,prompt,1,hi,अपने घुटने छुओ!,playful,true
+simon_knees,prompt,1,en,Touch your knees!,playful,true
+simon_clap,prompt,1,mr,टाळ्या वाजव!,playful,true
+simon_clap,prompt,1,hi,ताली बजाओ!,playful,true
+simon_clap,prompt,1,en,Clap your hands!,playful,true
+simon_left_hand_up,prompt,1,mr,डावा हात वर कर!,playful,true
+simon_left_hand_up,prompt,1,hi,बायाँ हाथ ऊपर करो!,playful,true
+simon_left_hand_up,prompt,1,en,Raise your left hand!,playful,true
+word_nose,word,1,mr,नाक,clear,false
+word_nose,word,1,hi,नाक,clear,false
+word_nose,word,1,en,Nose,clear,false
+word_head,word,1,mr,डोकं,clear,false
+word_head,word,1,hi,सिर,clear,false
+word_head,word,1,en,Head,clear,false
+word_ear,word,1,mr,कान,clear,false
+word_ear,word,1,hi,कान,clear,false
+word_ear,word,1,en,Ear,clear,false
+word_hands_up,word,1,mr,वर,clear,false
+word_hands_up,word,1,hi,ऊपर,clear,false
+word_hands_up,word,1,en,Up,clear,false
+word_tummy,word,1,mr,पोट,clear,false
+word_tummy,word,1,hi,पेट,clear,false
+word_tummy,word,1,en,Tummy,clear,false
+word_shoulders,word,1,mr,खांदे,clear,false
+word_shoulders,word,1,hi,कंधे,clear,false
+word_shoulders,word,1,en,Shoulders,clear,false
+word_knees,word,1,mr,गुडघे,clear,false
+word_knees,word,1,hi,घुटने,clear,false
+word_knees,word,1,en,Knees,clear,false
+word_clap,word,1,mr,टाळी,clear,false
+word_clap,word,1,hi,ताली,clear,false
+word_clap,word,1,en,Clap,clear,false
+word_left_hand_up,word,1,mr,डावा,clear,false
+word_left_hand_up,word,1,hi,बायाँ,clear,false
+word_left_hand_up,word,1,en,Left,clear,false
+praise_01,praise,1,mr,शाब्बास!,excited,false
+praise_01,praise,1,hi,शाबाश!,excited,false
+praise_01,praise,1,en,Well done!,excited,false
+praise_02,praise,1,mr,खूप छान!,excited,false
+praise_02,praise,1,hi,बहुत बढ़िया!,excited,false
+praise_02,praise,1,en,Great job!,excited,false
+praise_03,praise,1,mr,वा!,excited,false
+praise_03,praise,1,hi,वाह!,excited,false
+praise_03,praise,1,en,Wow!,excited,false
+praise_04,praise,1,mr,अप्रतिम!,excited,false
+praise_04,praise,1,hi,कमाल कर दिया!,excited,false
+praise_04,praise,1,en,Amazing!,excited,false
+praise_05,praise,1,mr,एकदम मस्त!,excited,false
+praise_05,praise,1,hi,बहुत अच्छे!,excited,false
+praise_05,praise,1,en,Super!,excited,false
+praise_06,praise,1,mr,जमलं की!,excited,false
+praise_06,praise,1,hi,कर दिखाया!,excited,false
+praise_06,praise,1,en,You did it!,excited,false
+praise_07,praise,1,mr,भारी!,excited,false
+praise_07,praise,1,hi,शानदार!,excited,false
+praise_07,praise,1,en,Fantastic!,excited,false
+praise_08,praise,1,mr,एकदम बरोबर!,excited,false
+praise_08,praise,1,hi,एकदम सही!,excited,false
+praise_08,praise,1,en,Perfect!,excited,false
+praise_09,praise,1,mr,तू तर स्टार आहेस!,excited,false
+praise_09,praise,1,hi,तुम तो स्टार हो!,excited,false
+praise_09,praise,1,en,You're a star!,excited,false
+praise_10,praise,1,mr,काय मस्त!,excited,false
+praise_10,praise,1,hi,क्या बात है!,excited,false
+praise_10,praise,1,en,Awesome!,excited,false
+praise_11,praise,1,mr,छान!,excited,false
+praise_11,praise,1,hi,बढ़िया!,excited,false
+praise_11,praise,1,en,Nice one!,excited,false
+praise_12,praise,1,mr,अगदी बरोबर!,excited,false
+praise_12,praise,1,hi,बिल्कुल सही!,excited,false
+praise_12,praise,1,en,Exactly right!,excited,false
+praise_13,praise,1,mr,जबरदस्त!,excited,false
+praise_13,praise,1,hi,ज़बरदस्त!,excited,false
+praise_13,praise,1,en,Brilliant!,excited,false
+praise_14,praise,1,mr,मज्जा आली!,excited,false
+praise_14,praise,1,hi,मज़ा आ गया!,excited,false
+praise_14,praise,1,en,Yay!,excited,false
+praise_15,praise,1,mr,हुर्रे!,excited,false
+praise_15,praise,1,hi,हुर्रे!,excited,false
+praise_15,praise,1,en,Hooray!,excited,false
+encourage_01,encourage,1,mr,छान प्रयत्न!,gentle,false
+encourage_01,encourage,1,hi,अच्छी कोशिश!,gentle,false
+encourage_01,encourage,1,en,Good try!,gentle,false
+encourage_02,encourage,1,mr,"चला, पुढचं करूया!",gentle,false
+encourage_02,encourage,1,hi,"चलो, अगला करते हैं!",gentle,false
+encourage_02,encourage,1,en,Let's try another one!,gentle,false
+encourage_03,encourage,1,mr,छान! आता पुढचं!,gentle,false
+encourage_03,encourage,1,hi,बढ़िया कोशिश! अब अगला!,gentle,false
+encourage_03,encourage,1,en,Nice try! Next one!,gentle,false
+encourage_04,encourage,1,mr,काही हरकत नाही! पुढे जाऊया!,gentle,false
+encourage_04,encourage,1,hi,कोई बात नहीं! आगे चलते हैं!,gentle,false
+encourage_04,encourage,1,en,That's okay! Let's go on!,gentle,false
+encourage_05,encourage,1,mr,किती छान खेळतोय आपण!,gentle,false
+encourage_05,encourage,1,hi,हम कितना अच्छा खेल रहे हैं!,gentle,false
+encourage_05,encourage,1,en,We're playing so well!,gentle,false
+encourage_06,encourage,1,mr,चालू ठेव!,gentle,false
+encourage_06,encourage,1,hi,करते रहो!,gentle,false
+encourage_06,encourage,1,en,Keep going!,gentle,false
+encourage_07,encourage,1,mr,जवळजवळ जमलं! आता पुढचं!,gentle,false
+encourage_07,encourage,1,hi,बस थोड़ा सा! अब अगला!,gentle,false
+encourage_07,encourage,1,en,Almost! Next one!,gentle,false
+encourage_08,encourage,1,mr,"चला, नवीन करूया!",gentle,false
+encourage_08,encourage,1,hi,"चलो, नया करते हैं!",gentle,false
+encourage_08,encourage,1,en,Let's do a new one!,gentle,false
+hint_01,hint,1,mr,माझ्याकडे बघ!,gentle,false
+hint_01,hint,1,hi,मुझे देखो!,gentle,false
+hint_01,hint,1,en,Watch me!,gentle,false
+simon_says_hint_01,hint,1,mr,माझ्याकडे बघ आणि कर!,gentle,false
+simon_says_hint_01,hint,1,hi,मुझे देखो और करो!,gentle,false
+simon_says_hint_01,hint,1,en,Watch me and try!,gentle,false
+simon_says_hint_02,hint,1,mr,"बघ, असं कर!",gentle,false
+simon_says_hint_02,hint,1,hi,"देखो, ऐसे करो!",gentle,false
+simon_says_hint_02,hint,1,en,"Look, do it like this!",gentle,false
+finish_01,finish,1,mr,शाब्बास! तू करून दाखवलंस!,excited,true
+finish_01,finish,1,hi,शाबाश! तुमने कर दिखाया!,excited,true
+finish_01,finish,1,en,Great job! You did it!,excited,true
+goodbye_01,goodbye,1,mr,टाटा! लवकरच भेटू!,warm,true
+goodbye_01,goodbye,1,hi,टाटा! जल्दी मिलेंगे!,warm,true
+goodbye_01,goodbye,1,en,Bye bye! See you soon!,warm,true
+sleep_01,transition,1,mr,मला झोप आली. शुभ रात्री!,sleepy,false
+sleep_01,transition,1,hi,मुझे नींद आ रही है। शुभ रात्रि!,sleepy,false
+sleep_01,transition,1,en,I'm sleepy now. Good night!,sleepy,false

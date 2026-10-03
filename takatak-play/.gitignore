@@ -1,16 +1,27 @@
-# venv
+# venv + local tools
 .env/
+.godot-bin/
 __pycache__/
 *.pyc
 .pytest_cache/
 
-# runtime output: logs, stats, dev clips (privacy: never commit video)
+# runtime output: logs, stats, recorded sessions/clips (privacy: never commit video)
 logs/*
 !logs/.gitkeep
 
-# generated placeholder voices (real recordings in assets/audio/ ARE committed)
-assets/audio_placeholder/
+# model binaries (vision/tools/fetch_model.sh)
+vision/models/*.hef
+vision/models/*.part
 
-# model binaries (fetched by tools/fetch_model.sh)
-models/*.hef
-models/*.part
+# generated content (./run.sh content)
+content/build/
+content/voice/drafts/
+content/voice/processed/
+content/voice/lipsync/
+content/voice/voice_manifest.json
+# studio recordings are large and not shipped; keep them outside git
+content/voice/raw/*
+!content/voice/raw/.gitkeep
+# parent-recorded child names: local only, never commit
+content/names/*
+!content/names/.gitkeep

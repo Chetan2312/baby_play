@@ -1,22 +1,16 @@
-# Takatak Play — Demo 1 configuration. Every tunable lives here.
+# Takatak vision service configuration. Every threshold lives here.
 
-camera: wide                      # wide | noir | auto
+camera: wide                      # wide | noir | auto (game can change it: set_camera)
 camera_index: { wide: 0, noir: 1 }  # fallback if sensor model names can't be matched
 camera_opts:
-  main_size: [1280, 720]          # display stream (16:9). ISP does the scaling.
+  main_size: [960, 540]           # display/transport stream (ISP scales; JPEG'd for the game)
   framerate: 30
   auto_brightness_threshold: 60   # camera: auto → mean luma (0-255) below this picks noir
   auto_probe_frames: 15
   controls: {}                    # extra libcamera controls, e.g. { AeMeteringMode: 0 }
 
 display:
-  fullscreen: true
-  width: 1920
-  height: 1080
-  mirror: true                    # mirrors the rendered image only, never keypoint labels
-  show_skeleton: false
-  fps: 30
-  show_debug: false               # fps / state overlay (toggle with D)
+  mirror: true                    # frames AND coordinates are sent pre-mirrored
 
 model: models/yolov8s_pose.hef
 
@@ -26,42 +20,27 @@ inference:
   min_person_conf: 0.5
   min_kp_conf: 0.3
   nms_iou: 0.7
-  max_people: 10
-  pad_value: 114                  # letterbox colour
+  max_people: 6
+  pad_value: 114
 
 smoothing:
   ema_alpha: 0.5
   face_memory_s: 0.5              # keep last confident face keypoints while a hand covers the face
 
-game:
-  languages: [mr, hi, en]         # order spoken per prompt
-  language_mode: all              # all | single | rotate
-  single_language: mr
-  rounds: 10
-  prompt_timeout_s: 8             # counted only while no voice clip is playing
-  hold_frames: 6                  # gesture must hold this many consecutive inference frames
-  hold_miss_frames: 1             # tolerated dropped frames inside a hold
-  celebrate_s: 2.0
-  difficulty: toddler             # toddler | kid  (prompt pool + tolerances)
-  attract_detect_s: 1.0           # person seen this long → greeting
-  greet_s: 2.5
-  intro_arm_s: 1.0                # after a prompt starts, wait this long before listening
-  rearm_gap_s: 1.5                # arm without a neutral pose after this long
-  hint_attempts: 1                # timeouts that give a hint before moving on
-  absent_pause_s: 3.0             # nobody seen → pause, "come to the magic mat"
-  resume_detect_s: 0.5
-  absent_abandon_s: 60            # paused this long → back to attract
-  finish_s: 7.0
-  seed: null                      # set an int for repeatable prompt order
+tracker:
+  mode: single                    # single | duo (game: set_players)
+  select: largest                 # largest | center
+  lost_grace_s: 0.7               # keep identity through short dropouts
+  max_jump: 0.6                   # max centre move per frame, fraction of bbox height
 
-player:
-  mode: largest                   # largest | center
-  lost_grace_s: 0.7               # keep the active player through short dropouts
-  max_jump: 0.6                   # max centre move per frame, as a fraction of bbox height
-  max_players: 1                  # Demo 2: >1 for race mode
+gesture_events:
+  start_frames: 2                 # consecutive true frames → "start"
+  hold_frames: 6                  # consecutive true frames → "held"
+  miss_frames: 1                  # tolerated false frames before "end"
 
-# Tolerances in units of S (shoulder width). Toddler is more generous.
+# Static gesture tolerances in units of S (shoulder width). Game picks with set_difficulty.
 gestures:
+  default_difficulty: toddler
   toddler:
     nose_dist: 0.8
     ear_dist: 0.8
@@ -103,39 +82,26 @@ gestures:
     scale_bbox_frac: 0.25
     scale_min_bbox_frac: 0.15
 
-audio:
-  frequency: 44100
-  buffer: 1024
-  language_gap_s: 0.3
-  voice_volume: 1.0
-  sfx_volume: 0.7
+server:
+  host: 127.0.0.1
+  port: 8765
+  frame_fps: 30                   # max JPEG rate (latest-wins per client)
+  jpeg_quality: 70
+  status_every_s: 1.0
+  no_player_after_s: 1.0          # start sending no_player after this long without an active player
+  no_player_every_s: 0.5
 
-fonts:
-  # searched in order; assets/fonts first so you can drop in your own
-  devanagari:
-    - assets/fonts/NotoSansDevanagari-Bold.ttf
-    - /usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf
-    - /usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf
-    - /usr/share/fonts/truetype/noto/NotoSansDevanagariUI-Bold.ttf
-  latin:
-    - assets/fonts/NotoSans-Bold.ttf
-    - /usr/share/fonts/truetype/noto/NotoSans-Bold.ttf
-    - /usr/share/fonts/truetype/noto/NotoSans-Regular.ttf
-    - /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
-
-content:
-  prompts: content/prompts.yaml
-  lines: content/lines.yaml
+thermal:
+  throttle_c: 80
+  hysteresis_c: 5
+  throttled_frame_fps: 15
 
 paths:
-  audio: assets/audio                       # real recorded voice: <lang>/<id>.wav
-  audio_placeholder: assets/audio_placeholder  # espeak-ng output (gitignored)
-  sfx: assets/sfx                           # success.wav, try_again.wav, start.wav
-  stats_dir: logs/stats
-  perf_log: logs/perf.log
+  perf_log: ../logs/vision_perf.log
+  sessions: ../logs/sessions      # tools/record_session.py output (keypoints only by default)
 
 perf:
   log_every_s: 5
 
 privacy:
-  save_frames: false              # must stay false outside dev. The game never writes frames.
+  save_frames: false              # the service never writes frames; must stay false

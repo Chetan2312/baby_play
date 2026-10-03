@@ -36,18 +36,20 @@ class Mean:
 
 
 class PerfLog:
-    def __init__(self, path, every_s):
+    def __init__(self, path, every_s, names=("cam", "pose", "frames")):
         self.path = path
         self.every_s = every_s
-        self.rates = {"cam": Rate(), "inf": Rate(), "ui": Rate()}
+        self.rates = {n: Rate() for n in names}
         self.latency_ms = Mean()
         self._next = time.monotonic() + every_s
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
+    def fps(self):
+        return {n: r.value for n, r in self.rates.items()}
+
     def summary(self):
-        r = self.rates
-        return (f"cam {r['cam'].value:4.1f}  inf {r['inf'].value:4.1f}  "
-                f"ui {r['ui'].value:4.1f} fps  lat {self.latency_ms.value:3.0f} ms")
+        rates = "  ".join(f"{n} {r.value:4.1f}" for n, r in self.rates.items())
+        return f"{rates} fps  lat {self.latency_ms.value:3.0f} ms"
 
     def maybe_log(self, now, extra=""):
         if now < self._next:

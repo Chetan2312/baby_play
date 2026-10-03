@@ -1,1 +1,1 @@
-"""Takatak Play — Demo 1: Simon Says body parts (trilingual)."""
+"""Takatak Play vision service: cameras, Hailo pose, gestures → WebSocket. No UI."""

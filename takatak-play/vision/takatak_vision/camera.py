@@ -1,6 +1,6 @@
 """Camera thread: Picamera2 dual stream (main → display, lores → inference).
 
-main  : XBGR8888 → numpy [R,G,B,255] per pixel → pygame "RGBX", zero conversion
+main  : XBGR8888 → numpy [R,G,B,255] per pixel → JPEG "RGBX" (encoder.py), 960x540
 lores : RGB888   → numpy [B,G,R] (Picamera2 naming), swapped to RGB in pose.py
 
 Sensors are matched by model name (imx708_wide vs *_noir), falling back to
@@ -25,6 +25,7 @@ class FrameBundle:
     lores: np.ndarray   # (h, w, 3) BGR
     t: float            # capture time (monotonic)
     camera: str
+    frame_id: int = 0
 
 
 def lores_size_for(main_size, input_size):
@@ -70,6 +71,7 @@ class CameraThread(threading.Thread):
         self.status = "starting camera…"
         self.active = None
         self._want = cfg["camera"]
+        self._frame_id = 0
         self._quit = threading.Event()
         self._switch = threading.Event()
 
@@ -150,7 +152,8 @@ class CameraThread(threading.Thread):
                     main, lores = self._grab(cam)
                     if not main.flags.c_contiguous:
                         main = np.ascontiguousarray(main)
-                    self.slot.put(FrameBundle(main, lores, time.monotonic(), which))
+                    self._frame_id += 1
+                    self.slot.put(FrameBundle(main, lores, time.monotonic(), which, self._frame_id))
                     if self.rate:
                         self.rate.tick()
             except Exception as e:  # noqa: BLE001
@@ -174,6 +177,7 @@ class VideoThread(threading.Thread):
         self.error = None
         self.status = ""
         self.active = "video"
+        self._frame_id = 0
         self._quit = threading.Event()
 
     def request_switch(self, which=None):
@@ -197,7 +201,8 @@ class VideoThread(threading.Thread):
                 continue
             main = cv2.cvtColor(cv2.resize(frame, self.main_size), cv2.COLOR_BGR2RGBA)
             lores = cv2.resize(frame, self.lores_size)  # BGR like Picamera2 RGB888
-            self.slot.put(FrameBundle(main, lores, time.monotonic(), "video"))
+            self._frame_id += 1
+            self.slot.put(FrameBundle(main, lores, time.monotonic(), "video", self._frame_id))
             if self.rate:
                 self.rate.tick()
             time.sleep(max(0.0, period - (time.monotonic() - t0)))

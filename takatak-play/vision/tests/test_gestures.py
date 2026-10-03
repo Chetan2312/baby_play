@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-from takatak import gestures as G
-from takatak.config import load_config
-from takatak.poses import NEUTRAL, TARGETS, bbox_of
+from takatak_vision import gestures as G
+from takatak_vision.config import load_config
+from takatak_vision.poses import NEUTRAL, TARGETS, bbox_of
 
 CFG = load_config()
 MIN_CONF = CFG["inference"]["min_kp_conf"]
-LEVELS = list(CFG["gestures"])
+LEVELS = ["toddler", "kid"]
 
 
 def run(name, kp, level):

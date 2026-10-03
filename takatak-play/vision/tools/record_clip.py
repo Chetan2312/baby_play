@@ -2,8 +2,8 @@
 """DEV ONLY: record a short test clip for offline gesture tuning.
 
 PRIVACY: this saves video. Only record yourself, your own family or testers
-who have given consent. Never commit clips (logs/clips/ is gitignored).
-Replay a clip through the pipeline with:  ./run.sh debug --video logs/clips/<file>.mp4
+who have given consent. Never commit clips (logs/ is gitignored).
+Replay a clip through the pipeline with:  ./run.sh vision --video logs/clips/<file>.mp4  (or: ./run.sh debug --video …)
 """
 import argparse
 import os
@@ -12,8 +12,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from takatak.camera import CameraError, find_camera_num  # noqa: E402
-from takatak.config import load_config, path  # noqa: E402
+from takatak_vision.camera import CameraError, find_camera_num  # noqa: E402
+from takatak_vision.config import load_config, path  # noqa: E402
 
 WARNING = """
 ############################################################
@@ -39,7 +39,7 @@ def main():
         num = find_camera_num(args.camera, cfg)
     except CameraError as e:
         sys.exit(str(e))
-    out_dir = path("logs/clips")
+    out_dir = path("../logs/clips")
     os.makedirs(out_dir, exist_ok=True)
     out = os.path.join(out_dir, f"{time.strftime('%Y%m%d_%H%M%S')}_{args.camera}.mp4")
     cam = Picamera2(num)

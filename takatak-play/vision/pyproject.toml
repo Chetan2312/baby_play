@@ -1,0 +1,13 @@
+[project]
+name = "takatak-vision"
+version = "0.2.0"
+description = "Takatak Play vision service: camera + Hailo pose + gestures over WebSocket"
+requires-python = ">=3.11"
+dependencies = ["websockets>=12.0", "pyyaml>=6.0", "numpy"]
+
+[tool.setuptools]
+packages = ["takatak_vision"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

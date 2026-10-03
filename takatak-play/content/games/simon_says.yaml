@@ -1,0 +1,28 @@
+# Simon Says: Body Parts. Game-side timing lives here; gesture tolerances live in
+# vision/config.yaml (picked with set_difficulty).
+game: simon_says
+title: { mr: "माझ्यासारखं कर", hi: "जैसा मैं कहूँ", en: "Simon Says" }
+intro_line: simon_intro
+hint_prefix: simon_says_hint      # hint lines: simon_says_hint_01, _02 …
+settings:
+  rounds: 10
+  prompt_timeout_s: 8             # counted only while no voice line is playing
+  intro_arm_s: 1.0                # start listening this long after the prompt starts
+  rearm_gap_s: 1.5                # arm without a neutral pose after this long
+  hint_attempts: 1                # timeouts that get a mascot demo before moving on
+  celebrate_s: 2.5
+  hold_fill_s: 0.25               # progress ring fill time between "start" and "held"
+  armed_settle_s: 0.2             # ignore a "held" that is older than arming by less than this
+levels:
+  toddler: [nose, head, ear, hands_up, tummy, clap]
+  kid: [nose, head, ear, hands_up, tummy, shoulders, knees, clap, left_hand_up]
+prompts:
+  - { id: nose,         check: touch_nose,      line: simon_nose,         word: word_nose,         demo: touch_nose }
+  - { id: head,         check: touch_head,      line: simon_head,         word: word_head,         demo: touch_head }
+  - { id: ear,          check: touch_ear,       line: simon_ear,          word: word_ear,          demo: touch_ear }
+  - { id: hands_up,     check: hands_up,        line: simon_hands_up,     word: word_hands_up,     demo: hands_up }
+  - { id: tummy,        check: touch_tummy,     line: simon_tummy,        word: word_tummy,        demo: touch_tummy }
+  - { id: shoulders,    check: touch_shoulders, line: simon_shoulders,    word: word_shoulders,    demo: shoulders }
+  - { id: knees,        check: touch_knees,     line: simon_knees,        word: word_knees,        demo: knees }
+  - { id: clap,         check: clap,            line: simon_clap,         word: word_clap,         demo: clap }
+  - { id: left_hand_up, check: left_hand_up,    line: simon_left_hand_up, word: word_left_hand_up, demo: left_hand_up }

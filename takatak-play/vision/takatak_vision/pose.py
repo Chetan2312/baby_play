@@ -3,33 +3,23 @@
 Uses picamera2.devices.Hailo like picamera2 examples/hailo/pose_estimation.py.
 The lores frame is letterboxed into the model input (no resize when the lores
 width equals the model width, which camera.py arranges), and results come
-back in LORES pixel coordinates, which are isotropic so gestures can use
-plain distances.
+back in LORES pixel coordinates (isotropic, so gestures use plain distances).
+analysis.Analyzer converts them to mirrored, normalised display space for the wire.
 """
 import os
 import threading
 import time
-from dataclasses import dataclass
 
 import numpy as np
 
 from .config import path as project_path
-from .player import Person
+from .tracker import Person
 from .postprocess import decode_yolov8_pose
 from .slots import LatestSlot
 
 
 class PoseError(Exception):
     pass
-
-
-@dataclass
-class PoseResult:
-    persons: list
-    frame_size: tuple    # (w, h) of the lores frame the coordinates refer to
-    t_capture: float
-    t_done: float
-    camera: str
 
 
 class PoseEngine:
@@ -100,10 +90,13 @@ class PoseEngine:
 
 
 class InferenceThread(threading.Thread):
-    def __init__(self, cfg, camera_slot, perf=None):
+    """camera bundle → Hailo pose → Analyzer → AnalysisResult in self.results."""
+
+    def __init__(self, cfg, camera_slot, analyzer, perf=None):
         super().__init__(daemon=True, name="inference")
         self.cfg = cfg
         self.camera_slot = camera_slot
+        self.analyzer = analyzer
         self.results = LatestSlot()
         self.perf = perf
         self.error = None
@@ -132,10 +125,10 @@ class InferenceThread(threading.Thread):
                     self.error = str(e)
                     return
                 now = time.monotonic()
-                self.results.put(PoseResult(persons, (bundle.lores.shape[1], bundle.lores.shape[0]),
-                                            bundle.t, now, bundle.camera))
+                size = (bundle.lores.shape[1], bundle.lores.shape[0])
+                self.results.put(self.analyzer.process(persons, size, now, bundle.frame_id, bundle.t))
                 if self.perf:
-                    self.perf.rates["inf"].tick()
+                    self.perf.rates["pose"].tick()
                     self.perf.latency_ms.add((now - bundle.t) * 1000)
         except Exception as e:  # noqa: BLE001
             self.error = f"Inference stopped: {e}"
