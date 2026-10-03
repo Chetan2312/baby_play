@@ -68,6 +68,7 @@ export function instance(gltf, opts = {}) {
   if (!gltf) return placeholder(opts);
   const { box, size, skinned } = gltf.userData;
   const obj = skinned ? SkeletonUtils.clone(gltf.scene) : gltf.scene.clone(true);
+  obj.traverse(o => { if (o.isMesh) o.userData.character = true; });
   if (opts.tint != null) {
     obj.traverse(o => {
       if (o.isMesh) o.material = Array.isArray(o.material) ? o.material.map(m => tinted(m, opts.tint)) : tinted(o.material, opts.tint);
@@ -138,7 +139,7 @@ export function tadpole(len) {
   }
   head.castShadow = tail.castShadow = true;
   g.add(head, tail);
-  g.traverse(o => { if (o.isMesh) o.userData.own = true; });
+  g.traverse(o => { if (o.isMesh) o.userData.own = o.userData.character = true; });
   g.scale.setScalar(len / 1.9);
   g.userData = { dims: { h: 0.7 * len / 1.9, w: 0.8 * len / 1.9, l: len }, mixer: null, actions: {}, tail };
   const wrap = new THREE.Group();
@@ -189,7 +190,7 @@ export function eggs(kind, count, size) {
     nest.castShadow = true;
     g.add(nest);
   }
-  g.traverse(o => { if (o.isMesh && !o.isInstancedMesh) o.userData.own = true; });
+  g.traverse(o => { if (o.isMesh && !o.isInstancedMesh) o.userData.own = o.userData.character = true; });
   inst.userData.own = true;
   const R = spread + size * 1.2;
   g.userData = { dims: { h: size * 2, w: R * 2, l: R * 2 } };
@@ -240,6 +241,7 @@ export function scatter(gltf, placements, { shadow = false, cull = false } = {})
     for (const P of placements) for (const M of part.mats) m.multiplyMatrices(P, M).toArray(all, 16 * i++);
     inst.castShadow = shadow;
     inst.receiveShadow = false;
+    inst.userData.plant = true;
     if (cull) { inst.frustumCulled = false; inst.userData.all = all.slice(); inst.userData.L = L; }
     else inst.computeBoundingSphere();
     insts.push(inst);

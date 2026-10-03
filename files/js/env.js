@@ -1,5 +1,6 @@
 /* Shared scenery helpers: sky, lights, generated textures, seeded random. */
 import * as THREE from "three";
+import { Sky } from "three/addons/objects/Sky.js";
 
 export function rng(seed) {
   return () => {
@@ -31,6 +32,7 @@ export function skyDome(top, horizon, bottom = horizon) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), mat);
   m.renderOrder = -1;
   m.frustumCulled = false;
+  m.userData.sky = true;
   m.onBeforeRender = (r, s, cam) => m.position.copy(cam.position);
   return m;
 }
@@ -106,4 +108,38 @@ export function waterNormals(size = 128) {
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
+}
+
+/* ---- realistic sky: physical atmosphere + drifting clouds, and the same sky
+   baked into an environment map so every surface gets natural light ---- */
+export const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 42), THREE.MathUtils.degToRad(135));
+function makeSky(scale) {
+  const sky = new Sky();
+  sky.scale.setScalar(scale);
+  const u = sky.material.uniforms;
+  u.turbidity.value = 4.5; u.rayleigh.value = 1.4; u.mieCoefficient.value = 0.004; u.mieDirectionalG.value = 0.82;
+  u.sunPosition.value.copy(SUN_DIR).multiplyScalar(1000);
+  u.cloudCoverage.value = 0.42; u.cloudDensity.value = 0.5; u.cloudScale.value = 0.0002 * 10000 / scale; u.cloudElevation.value = 0.45;
+  return sky;
+}
+let envTex = null;
+export function realSky(scene, renderer) {
+  const sky = makeSky(1400);
+  sky.frustumCulled = false;
+  sky.userData.realSky = true;
+  sky.onBeforeRender = (r, s, cam) => sky.position.copy(cam.position);
+  scene.add(sky);
+  if (!envTex) {
+    const pm = new THREE.PMREMGenerator(renderer);
+    const sc = new THREE.Scene();
+    const s2 = makeSky(1400);
+    s2.material.uniforms.showSunDisc.value = 0;          // a sun disc in the env map makes hot sparkles
+    sc.add(s2);
+    envTex = pm.fromScene(sc, 0.02, 0.1, 2000).texture;
+    pm.dispose();
+  }
+  scene.environment = envTex;
+  scene.environmentIntensity = 0.16;
+  scene.userData.env = envTex;
+  return sky;
 }

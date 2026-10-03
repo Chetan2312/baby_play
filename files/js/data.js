@@ -41,6 +41,15 @@ export const UI = {
   back:       { en: "Back", mr: "मागे", hi: "वापस" },
   toJungle:   { en: "Back to the jungle", mr: "जंगलात परत", hi: "जंगल में वापस" },
   hint:       { en: "Tap an animal · drag to look around", mr: "प्राण्यावर टॅप करा · बघायला ओढा", hi: "जानवर पर टैप करो · देखने के लिए खींचो" },
+  animalsTab: { en: "Animals", mr: "प्राणी", hi: "जानवर" },
+  plantsTab:  { en: "Plants", mr: "झाडे", hi: "पेड़-पौधे" },
+  eatYes:     { en: "Fruit is eaten — pick it with a grown-up", mr: "फळ खातात — मोठ्यांसोबत तोडा", hi: "फल खाया जाता है — बड़ों के साथ तोड़ो" },
+  eatNo:      { en: "Don’t eat — poisonous!", mr: "खाऊ नका — विषारी!", hi: "मत खाओ — ज़हरीला!" },
+  spinPlant:  { en: "Drag to walk all round the tree", mr: "झाडाभोवती फिरायला ओढा", hi: "पेड़ के चारों ओर घूमने के लिए खींचो" },
+  mimosaTap:  { en: "Tap the plant — watch its leaves close!", mr: "रोपावर टॅप करा — पाने मिटतात बघा!", hi: "पौधे पर टैप करो — पत्ते बंद होते देखो!" },
+  mimosaSays: { en: "Touch-me-not closes its leaves!", mr: "लाजाळूने पाने मिटली!", hi: "छुईमुई ने पत्ते बंद कर लिए!" },
+  anime:      { en: "Anime look", mr: "ॲनिमे रूप", hi: "एनिमे रूप" },
+  classic:    { en: "Classic look", mr: "साधे रूप", hi: "सादा रूप" },
   spin:       { en: "Drag to spin the family all the way round", mr: "कुटुंब फिरवायला ओढा", hi: "परिवार घुमाने के लिए खींचो" },
 };
 

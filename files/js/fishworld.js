@@ -9,6 +9,7 @@ export const fishUrls = FISH.map(f => A.url("fish", f.model));
 
 export function createFishWorld(renderer, isMobile) {
   const scene = new THREE.Scene();
+  scene.userData.kind = "water";
   scene.background = new THREE.Color(0x0e6496);
   scene.fog = new THREE.FogExp2(0x0e6496, 0.028);
   scene.add(skyDome(0x47c1ec, 0x1273aa, 0x073556));

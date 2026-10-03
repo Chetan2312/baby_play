@@ -96,6 +96,19 @@ was changed, except that the cougar model is shown, recoloured, as the lioness
 
 3D engine: [three.js](https://threejs.org) r186, MIT licence (`vendor/three/LICENSE`).
 
+# Nature: textures, scans and plants
+
+- **Ground and bark photo textures** — [ambientCG](https://ambientcg.com), CC0 1.0:
+  Grass004, Ground037 (forest floor), Ground020 (leaf-litter trail), Ground024 (pond mud),
+  Bark001, Bark005, Bark012, Bark013. Resized to 512–1024 px WebP (`tex/`).
+- **Scanned plants and rocks** — [Poly Haven](https://polyhaven.com), CC0 1.0:
+  fern_02, weed_plant_02, shrub_sorrel_01, rock_moss_set_01, tree_stump_01.
+  Simplified to about 1–4k triangles and compressed (`models/real/`).
+- **Sky** — three.js `Sky` (physical atmosphere with procedural clouds), MIT.
+- **The 29 named jungle plants** (banyan, peepal, neem, mango, jamun, lantana, gunja…)
+  are not models: they are grown in code by `js/flora.js`, with leaf shapes painted per
+  species. Nothing to credit, nothing to license.
+
 # Picture credits
 
 Every photo in `pics/` was collected through the [Openverse](https://openverse.org)

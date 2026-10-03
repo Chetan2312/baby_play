@@ -2,10 +2,13 @@
 import * as THREE from "three";
 import * as A from "./assets.js";
 import { ANIMALS, FISH, UI, LANGS } from "./data.js";
+import { PLANTS, CATS, PARTS } from "./plants.js";
+import * as F from "./flora.js";
 import { createJungle, route, camAtStop, natureUrls } from "./jungle.js";
 import { createFamily } from "./family.js";
 import { createFishWorld, fishUrls } from "./fishworld.js";
 import { lerpAngle, smooth } from "./env.js";
+import { createStyler } from "./anime.js";
 
 const $ = s => document.querySelector(s);
 const isMobile = matchMedia("(pointer: coarse)").matches || Math.min(innerWidth, innerHeight) < 600;
@@ -17,11 +20,14 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? (k in mem ? mem[k] : d) : JSON.parse(v); } catch (e) { return k in mem ? mem[k] : d; } },
   set(k, v) { mem[k] = v; try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
-const S = Object.assign({ lang: "en", sound: true }, store.get("zoo.settings", {}));
+const S = Object.assign({ lang: "en", sound: true, anime: false }, store.get("zoo.settings", {}));
 const save = () => store.set("zoo.settings", S);
 const T = key => UI[key][S.lang] || UI[key].en;
+const L = obj => obj[S.lang] || obj.en;
 const nm = sp => sp.name[S.lang] || sp.name.en;
 const byId = id => ANIMALS.find(a => a.id === id) || FISH.find(f => f.id === id);
+const plantById = id => PLANTS.find(p => p.id === id);
+let lastT = 0;                  // scene clock, for the touch-me-not
 
 /* ---------- renderer ---------- */
 let renderer;
@@ -42,6 +48,8 @@ const canvas = renderer.domElement;
 
 const jCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1500);
 jCam.rotation.order = "YXZ";
+const styler = createStyler(renderer);
+styler.set(!!S.anime);
 
 /* ---------- audio: a few synthesised sounds + the device's voices ---------- */
 let ac = null;
@@ -117,7 +125,9 @@ let mode = "loading";          // loading | jungle | family | fish
 let familyFrom = "jungle";
 const nav = { stop: 0, u: 0, onBoard: false, route: null, dist: 0, speed: 7, target: 0, yaw: 0, pitch: 0, userYaw: 0, userPitch: 0, pendingOpen: null, tour: false, tourAt: 0 };
 
-const stopIndex = id => jungle.stops.findIndex(s => s.id === (id === "duck" ? "pond" : id));
+/* stop keys: an animal id, "pond" (also for "duck"), or "plant:<id>" */
+const stopIndex = id => jungle.stops.findIndex(s =>
+  id === "duck" ? s.id === "pond" : id.startsWith("plant:") ? s.kind === "plant" && s.ids.includes(id.slice(6)) : s.id === id);
 const yawTo = d => Math.atan2(-d.x, -d.z);
 const pitchTo = d => Math.atan2(d.y, Math.hypot(d.x, d.z));
 
@@ -152,8 +162,10 @@ function arrive(i) {
   nav.pendingOpen = null;
   nav.tourAt = performance.now();
   if (open === "pond") return openFish();
+  if (open && open.startsWith("plant:")) return openPlant(open.slice(6));
   if (open) return openFamily(open);
   if (st.kind === "pond") { say(T("pond")); toast(T("tapPond")); }
+  else if (st.kind === "plant") say(st.ids.map(x => nm(plantById(x))).join(", "));
   else say(nm(byId(st.id)));
 }
 
@@ -190,54 +202,77 @@ function updateNav(dt) {
 }
 
 /* ---------- jungle labels + chips ---------- */
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
 function jungleItems() {
   return jungle.labels.map(l => ({ key: "j:" + l.id, id: l.id, pos: l.pos }));
 }
 function makeJungleLabel(it) {
-  const el = document.createElement("button");
-  el.className = "tag" + (it.id === "pond" ? " pond" : "");
-  el.dataset.id = it.id;
-  el.addEventListener("click", e => { e.stopPropagation(); pop(); tapTarget(it.id === "pond" ? { type: "pond" } : { type: "animal", id: it.id }); });
-  return el;
+  const b = document.createElement("button");
+  const plant = it.id.startsWith("p:") && plantById(it.id.slice(2));
+  b.className = "tag" + (it.id === "pond" ? " pond" : "") + (plant ? " plant" + (plant.cat === "danger" ? " danger" : "") : "");
+  b.dataset.id = it.id;
+  b.addEventListener("click", e => {
+    e.stopPropagation(); pop();
+    tapTarget(it.id === "pond" ? { type: "pond" } : plant ? { type: "plant", id: plant.id } : { type: "animal", id: it.id });
+  });
+  return b;
+}
+function labelText(id) {
+  if (id === "pond") return "🐟 " + T("pond");
+  if (id.startsWith("p:")) { const p = plantById(id.slice(2)); return (p.cat === "danger" ? "⚠️ " : p.emoji + " ") + nm(p); }
+  return byId(id).emoji + " " + nm(byId(id));
 }
 function renderJungleLabels() {
   labelsJ.sync(jungleItems(), makeJungleLabel);
-  for (const [k, el] of labelsJ.els) {
-    const id = k.slice(2);
-    el.textContent = id === "pond" ? "🐟 " + T("pond") : byId(id).emoji + " " + nm(byId(id));
-  }
+  for (const [k, e] of labelsJ.els) e.textContent = labelText(k.slice(2));
 }
 
+/* the strip under the jungle: one tab of animal chips, one of plant chips */
+let chipTab = "animals";
 function buildChips() {
   const bar = $("#chips");
   bar.textContent = "";
   jungle.stops.forEach((st, i) => {
-    const ids = st.kind === "pond" ? ["pond", "duck"] : [st.id];
+    const ids = st.kind === "pond" ? ["pond", "duck"] : st.kind === "plant" ? st.ids.map(x => "p:" + x) : [st.id];
     for (const id of ids) {
       const b = document.createElement("button");
-      b.className = "chip";
+      const plant = id.startsWith("p:") && plantById(id.slice(2));
+      b.className = "chip" + (plant ? " wide" + (plant.cat === "danger" ? " danger" : "") : "");
       b.dataset.stop = i;
       b.dataset.id = id;
-      b.textContent = id === "pond" ? "🐟" : byId(id).emoji;
+      b.dataset.kind = plant ? "plants" : "animals";
+      if (plant) { b.append(el("span", "e", plant.emoji)); b.append(el("span", "n", "")); }
+      else b.textContent = id === "pond" ? "🐟" : byId(id).emoji;
       b.addEventListener("click", () => { pop(); stopTour(); goTo(i); });
       bar.appendChild(b);
     }
   });
   titleChips();
+  setTab(chipTab);
+}
+function setTab(tab) {
+  chipTab = tab;
+  $("#chips").dataset.tab = tab;
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.tab === tab));
+  if (jungle) markChip(nav.route ? nav.target : nav.stop);
 }
 function titleChips() {
   for (const b of document.querySelectorAll("#chips .chip")) {
     const id = b.dataset.id;
-    const t = id === "pond" ? T("pond") : nm(byId(id));
+    const t = id === "pond" ? T("pond") : id.startsWith("p:") ? nm(plantById(id.slice(2))) : nm(byId(id));
     b.title = t; b.setAttribute("aria-label", t);
+    const n = b.querySelector(".n");
+    if (n) n.textContent = t.replace(/ \(.*\)$/, "");
   }
+  document.querySelectorAll("#tabs button").forEach(b => { b.querySelector(".t").textContent = T(b.dataset.tab + "Tab"); });
 }
 function markChip(i) {
   let first = null;
   for (const b of document.querySelectorAll("#chips .chip")) {
     const on = +b.dataset.stop === i;
     b.classList.toggle("on", on);
-    if (on && !first) first = b;
+    if (on && !first && b.dataset.kind === chipTab) first = b;
   }
   if (first) first.scrollIntoView({ inline: "center", block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
 }
@@ -254,11 +289,15 @@ function tapTarget(hit) {
   if (!hit) return;
   if (mode === "jungle") {
     stopTour();
-    const i = stopIndex(hit.type === "pond" ? "pond" : hit.id);
+    const key = hit.type === "pond" ? "pond" : hit.type === "plant" ? "plant:" + hit.id : hit.id;
+    const i = stopIndex(key);
     const here = !nav.route && nav.stop === i;
-    const open = hit.type === "pond" ? "pond" : hit.id;
-    if (here) open === "pond" ? openFish() : openFamily(open);
-    else goTo(i, open);
+    if (!here) return goTo(i, key);
+    if (hit.type === "plant" && hit.id === "mimosa") {               // it folds first, then we look closer
+      jungle.foldMimosa(lastT); say(T("mimosaSays")); setTimeout(() => openPlant("mimosa"), 1400);
+      return;
+    }
+    if (key === "pond") openFish(); else if (hit.type === "plant") openPlant(hit.id); else openFamily(key);
   } else if (mode === "fish" && hit.type === "fish") {
     openFamily(hit.id, true);
   }
@@ -283,6 +322,7 @@ canvas.addEventListener("pointerup", e => {
   if (moved > 10 || !quick) return;
   if (mode === "jungle") { const h = pick(e.clientX, e.clientY, jCam, jungle.hits); if (h) { pop(); tapTarget(h); } }
   else if (mode === "fish") { const h = pick(e.clientX, e.clientY, fishWorld.camera, fishWorld.hits); if (h) { pop(); tapTarget(h); } else blub(); }
+  else if (mode === "family" && current && current.plant && current.plant.id === "mimosa") { F.fold(family.subject, lastT); say(T("mimosaSays")); }
 });
 canvas.addEventListener("pointercancel", () => { down = null; });
 
@@ -293,7 +333,7 @@ addEventListener("keydown", e => {
     else if (e.key === "ArrowLeft") { stopTour(); goTo((nav.route ? nav.target : nav.stop) - 1); }
     else if (e.key === "Enter" || e.key === " ") {
       const st = jungle.stops[nav.stop];
-      if (!nav.route) st.kind === "pond" ? openFish() : openFamily(st.id);
+      if (!nav.route) st.kind === "pond" ? openFish() : st.kind === "plant" ? openPlant(st.ids[0]) : openFamily(st.id);
     } else return;
     e.preventDefault();
   } else if (e.key === "Escape" || e.key === "Backspace") {
@@ -305,11 +345,41 @@ addEventListener("keydown", e => {
 /* ---------- fades between worlds ---------- */
 const fade = $("#fade");
 const wait = ms => new Promise(r => setTimeout(r, ms));
-async function fadeOut() { fade.classList.add("on"); await wait(reduceMotion ? 0 : 260); }
-function fadeIn() { fade.classList.remove("on"); }
+/* classic: a white blink. anime: a wave-pattern curtain sweeps across */
+async function fadeOut() {
+  fade.classList.toggle("wave", !!S.anime && !reduceMotion);
+  fade.classList.remove("out", "reset");
+  void fade.offsetWidth;
+  fade.classList.add("on");
+  await wait(reduceMotion ? 0 : S.anime ? 420 : 260);
+}
+function fadeIn() {
+  if (!fade.classList.contains("wave")) { fade.classList.remove("on"); return; }
+  fade.classList.add("out");
+  fade.classList.remove("on");
+  setTimeout(() => { fade.classList.add("reset"); fade.classList.remove("out"); }, 480);
+}
 
-/* ---------- family view ---------- */
-let current = null;           // { sp, isFish }
+/* ---------- family view (animals, fish) and plant view share one stage ---------- */
+let current = null;           // { sp, isFish } or { plant }
+function stageView() {
+  const narrow = matchMedia("(max-width:760px), (orientation:portrait)").matches;
+  const aspect = innerWidth / innerHeight;
+  return narrow ? { fw: 1, fh: 0.5, aspect } : { fw: (innerWidth - Math.min(400, innerWidth * 0.4)) / innerWidth, fh: 1, aspect };
+}
+function enterStage(key) {
+  styler.dirty(family.scene);
+  mode = "family";
+  document.body.dataset.mode = "family";
+  family.controls.enabled = true;
+  fillPanel();
+  $("#panel").hidden = false;
+  $("#panel").scrollTop = 0;
+  layoutOffset();
+  labelsF.sync(family.labels.map((l, i) => ({ key: "f:" + i + ":" + key })), () => el("div", "tag role"));
+  familyLabelText();
+  fadeIn();
+}
 async function openFamily(id, isFish = false) {
   const sp = byId(id);
   if (!sp) return;
@@ -318,38 +388,53 @@ async function openFamily(id, isFish = false) {
   if (mode !== "family") familyFrom = mode === "fish" ? "fish" : "jungle";
   if (familyFrom === "fish") fishWorld.controls.enabled = false;
   $("#spinner").hidden = false;
-  const narrow = matchMedia("(max-width:760px), (orientation:portrait)").matches;
-  const aspect = innerWidth / innerHeight;
-  await family.show(sp, isFish, narrow ? { fw: 1, fh: 0.5, aspect } : { fw: (innerWidth - Math.min(400, innerWidth * 0.4)) / innerWidth, fh: 1, aspect });
+  await family.show(sp, isFish, stageView());
   $("#spinner").hidden = true;
   current = { sp, isFish };
-  mode = "family";
-  document.body.dataset.mode = "family";
-  family.controls.enabled = true;
-  fillPanel();
-  $("#panel").hidden = false;
-  $("#panel").scrollTop = 0;
-  layoutOffset();
-  labelsF.sync(family.labels.map((l, i) => ({ key: "f:" + i + ":" + sp.id })), () => { const el = document.createElement("div"); el.className = "tag role"; return el; });
-  familyLabelText();
-  fadeIn();
+  enterStage(sp.id);
   toast(T("spin"));
   say(nm(sp) + (S.lang === "en" ? " family" : " " + T("family")));
 }
+async function openPlant(id) {
+  const pl = plantById(id);
+  if (!pl) return;
+  stopTour();
+  await fadeOut();
+  if (mode !== "family") familyFrom = mode === "fish" ? "fish" : "jungle";
+  $("#spinner").hidden = false;
+  await family.showPlant(pl, stageView());
+  $("#spinner").hidden = true;
+  current = { plant: pl };
+  enterStage(pl.id);
+  toast(pl.id === "mimosa" ? T("mimosaTap") : T("spinPlant"));
+  say(nm(pl));
+}
+const currentKey = () => current && (current.plant ? current.plant.id : current.sp.id);
+const PART_ICON = { leaf: "🍃 ", fruit: "🍎 ", flower: "🌸 ", pod: "🫛 ", seeds: "🌰 ", berries: "🫐 ", roots: "〰️ " };
 function familyLabelText() {
   if (!current) return;
-  const { sp, isFish } = current;
+  const key = currentKey();
+  if (current.plant) {
+    family.labels.forEach((l, i) => {
+      const e = labelsF.els.get("f:" + i + ":" + key);
+      if (!e) return;
+      e.textContent = l.role === "name" ? current.plant.emoji + " " + nm(current.plant) : PART_ICON[l.role] + L(PARTS[l.role]);
+      e.dataset.role = l.role === "name" ? "name" : "part";
+    });
+    return;
+  }
+  const { sp } = current;
   const roles = sp.roles || { m: "Male", f: "Female" };
   family.labels.forEach((l, i) => {
-    const el = labelsF.els.get("f:" + i + ":" + sp.id);
-    if (!el) return;
+    const e = labelsF.els.get("f:" + i + ":" + key);
+    if (!e) return;
     let txt;
     if (l.role === "father") txt = "♂ " + T("father") + (S.lang === "en" && roles.m !== "Male" ? " · " + roles.m : "");
     else if (l.role === "mother") txt = "♀ " + T("mother") + (S.lang === "en" && roles.f !== "Female" ? " · " + roles.f : "");
     else if (l.role === "baby") txt = S.lang === "en" ? (l.count > 1 ? `${roles.bs} × ${l.count}` : roles.b) : (l.count > 1 ? `${T("babies")} × ${l.count}` : T("baby"));
     else txt = "🥚 " + T("eggs");
-    el.textContent = txt;
-    el.dataset.role = l.role;
+    e.textContent = txt;
+    e.dataset.role = l.role;
   });
 }
 async function closeFamily() {
@@ -364,33 +449,56 @@ async function closeFamily() {
   fadeIn();
 }
 
-function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-function fillPanel() {
-  const { sp, isFish } = current;
-  const P = $("#panelBody");
-  P.textContent = "";
+function panelHead(P, item, sayText) {
   const head = el("header", "ph");
-  head.append(el("span", "big-emoji", sp.emoji));
+  head.append(el("span", "big-emoji", item.emoji));
   const names = el("div", "names");
-  names.append(el("h2", null, nm(sp)));
-  names.append(el("p", "alt", ["en", "mr", "hi"].filter(l => l !== S.lang).map(l => sp.name[l]).join(" · ")));
+  names.append(el("h2", null, nm(item)));
+  names.append(el("p", "alt", ["en", "mr", "hi"].filter(l => l !== S.lang).map(l => item.name[l]).join(" · ")));
   head.append(names);
   const sayBtn = el("button", "say", "🔊");
   sayBtn.setAttribute("aria-label", "Say it");
-  sayBtn.addEventListener("click", () => say(S.lang === "en" ? `${sp.name.en}. ${sp.info.fact}` : nm(sp)));
+  sayBtn.addEventListener("click", () => say(S.lang === "en" ? sayText : nm(item)));
   head.append(sayBtn);
   P.append(head);
-
-  if (isFish) {
-    const tag = el("p", "edible " + (sp.edible ? "yes" : "no"), sp.edible ? "🍽️ " + T("edible") : "🚫 " + (sp.why[S.lang] || sp.why.en));
-    P.append(tag);
-  }
-  if (sp.photo) {
-    const img = new Image();
-    img.src = sp.photo; img.alt = sp.name.en; img.className = "photo"; img.decoding = "async";
-    img.onerror = () => img.remove();
-    P.append(img);
-  }
+}
+function panelPhoto(P, item) {
+  if (!item.photo) return;
+  const img = new Image();
+  img.src = item.photo; img.alt = item.name.en; img.className = "photo"; img.decoding = "async";
+  img.onerror = () => img.remove();
+  P.append(img);
+}
+function fillPlantPanel() {
+  const pl = current.plant;
+  const P = $("#panelBody");
+  P.textContent = "";
+  panelHead(P, pl, `${pl.name.en}. ${pl.info.fact}`);
+  const tags = el("div", "ptags");
+  tags.append(el("span", "cat c-" + pl.cat, CATS[pl.cat].emoji + " " + L(CATS[pl.cat])));
+  if (pl.eat === "yes") tags.append(el("span", "edible yes", "✅ " + T("eatYes")));
+  if (pl.eat === "no") tags.append(el("span", "edible no", "⚠️ " + T("eatNo")));
+  P.append(tags);
+  panelPhoto(P, pl);
+  const dl = el("dl");
+  const row = (k, v) => { dl.append(el("dt", null, k)); dl.append(el("dd", null, v)); };
+  const I = pl.info;
+  row("How to spot it", I.spot);
+  row("When", I.season);
+  row("Who eats it", I.eaters);
+  row("Uses", I.uses);
+  row("Wow!", I.fact);
+  P.append(dl);
+  P.append(el("p", "note", "Facts are in English; names in all three languages. Never taste a wild plant unless a grown-up who knows it says it is safe."));
+}
+function fillPanel() {
+  if (current.plant) return fillPlantPanel();
+  const { sp, isFish } = current;
+  const P = $("#panelBody");
+  P.textContent = "";
+  panelHead(P, sp, `${sp.name.en}. ${sp.info.fact}`);
+  if (isFish) P.append(el("p", "edible " + (sp.edible ? "yes" : "no"), sp.edible ? "🍽️ " + T("edible") : "🚫 " + L(sp.why)));
+  panelPhoto(P, sp);
   const fam = el("div", "fam");
   const roles = sp.roles || { m: "Male", f: "Female" };
   const card = (sym, a, b) => { const c = el("div", "fc"); c.append(el("b", null, sym + " " + a)); if (b) c.append(el("small", null, b)); return c; };
@@ -398,7 +506,6 @@ function fillPanel() {
   if (!isFish) fam.append(card("🐾", sp.n > 1 ? T("babies") : T("baby"), `${roles.bs || roles.b} × ${sp.n}`));
   if (isFish || sp.eggs) fam.append(card("🥚", T("eggs")));
   P.append(fam);
-
   const dl = el("dl");
   const row = (k, v) => { dl.append(el("dt", null, k)); const d = el("dd"); if (Array.isArray(v)) { d.className = "kinds"; v.forEach(x => d.append(el("span", null, x))); } else d.textContent = v; dl.append(d); };
   const I = sp.info;
@@ -430,6 +537,7 @@ async function openFish() {
   await fadeOut();
   $("#spinner").hidden = false;
   await fishWorld.build();
+  styler.dirty(fishWorld.scene);
   $("#spinner").hidden = true;
   mode = "fish";
   document.body.dataset.mode = "fish";
@@ -447,7 +555,7 @@ async function openFish() {
 function fishLabelText() {
   for (const [k, e] of labelsW.els) {
     if (k.startsWith("z:")) e.textContent = k === "z:edible" ? "🍽️ " + T("edible") : "🚫 " + T("inedible");
-    else { const f = byId(k.slice(2)); e.textContent = nm(f); }
+    else e.textContent = nm(byId(k.slice(2)));
   }
 }
 function fishItems() {
@@ -495,14 +603,28 @@ function applyLang() {
 }
 document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => {
   S.lang = b.dataset.lang; save(); applyLang(); pop();
-  if (mode === "jungle" && jungle) { const st = jungle.stops[nav.stop]; say(st.kind === "pond" ? T("pond") : nm(byId(st.id))); }
-  else if (current) say(nm(current.sp));
+  if (mode === "jungle" && jungle) { const st = jungle.stops[nav.stop]; say(st.kind === "pond" ? T("pond") : st.kind === "plant" ? nm(plantById(st.ids[0])) : nm(byId(st.id))); }
+  else if (current) say(nm(current.plant || current.sp));
 }));
+function styleUI() {
+  $("#styleBtn").setAttribute("aria-pressed", !!S.anime);
+  document.body.classList.toggle("anime", !!S.anime);
+}
+$("#styleBtn").addEventListener("click", async () => {
+  pop();
+  await fadeOut();
+  S.anime = !S.anime; save();
+  styler.set(S.anime);
+  styleUI();
+  fadeIn();
+  toast(S.anime ? "✨ " + T("anime") : T("classic"));
+});
 function soundUI() { $("#sound").textContent = S.sound ? "🔊" : "🔇"; $("#sound").setAttribute("aria-pressed", S.sound); }
 $("#sound").addEventListener("click", () => { S.sound = !S.sound; save(); soundUI(); if (!S.sound) try { speechSynthesis.cancel(); } catch (e) {} else pop(); });
 $("#fs").addEventListener("click", async () => {
   try { document.fullscreenElement ? await document.exitFullscreen() : await document.documentElement.requestFullscreen({ navigationUI: "hide" }); } catch (e) {}
 });
+document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => { pop(); setTab(b.dataset.tab); }));
 $("#prev").addEventListener("click", () => { pop(); stopTour(); goTo((nav.route ? nav.target : nav.stop) - 1); });
 $("#next").addEventListener("click", () => { pop(); stopTour(); goTo((nav.route ? nav.target : nav.stop) + 1); });
 $("#tour").addEventListener("click", () => {
@@ -545,19 +667,21 @@ let nextChirp = 4;
 function frame(now) {
   timer.update(now);
   const dt = Math.min(timer.getDelta(), 0.05), t = timer.getElapsed();
+  lastT = t;
   if (mode === "jungle" || mode === "loading") {
     updateNav(dt);
     jungle.update(dt, t, jCam);
-    renderer.render(jungle.scene, jCam);
+    styler.render(jungle.scene, jCam, dt, t);
     labelsJ.place(jungleItems(), jCam, 48);
     if (mode === "jungle" && t > nextChirp) { chirp(); nextChirp = t + 3 + Math.random() * 6; }
   } else if (mode === "family") {
     family.update(dt, t);
-    renderer.render(family.scene, family.camera);
-    labelsF.place(family.labels.map((l, i) => ({ key: "f:" + i + ":" + current.sp.id, pos: l.pos })), family.camera);
+    styler.render(family.scene, family.camera, dt, t);
+    const key = currentKey();
+    labelsF.place(family.labels.map((l, i) => ({ key: "f:" + i + ":" + key, pos: l.pos })), family.camera);
   } else if (mode === "fish") {
     fishWorld.update(dt, t);
-    renderer.render(fishWorld.scene, fishWorld.camera);
+    styler.render(fishWorld.scene, fishWorld.camera, dt, t);
     labelsW.place(fishItems(), fishWorld.camera);
   }
 }
@@ -565,13 +689,16 @@ function frame(now) {
 /* ---------- boot ---------- */
 async function boot() {
   applyLang();
-  $("#status").textContent = T("loading");
+  styleUI();
   soundUI();
+  $("#status").textContent = T("loading");
   const bar = $("#bar");
   const animalUrls = [...new Set(ANIMALS.flatMap(a => Object.values(a.models)).filter(k => k !== "tadpole"))].map(k => A.url("animals", k));
   const urls = [...animalUrls, ...natureUrls, A.url("fish", "koi"), A.url("fish", "goldfish")];
-  await A.loadAll(urls, (d, n) => { bar.style.width = (d / n) * 90 + "%"; });
-  jungle = await createJungle(isMobile);
+  await A.loadAll(urls, (d, n) => { bar.style.width = (d / n) * 80 + "%"; });
+  jungle = await createJungle(isMobile, renderer);
+  bar.style.width = "92%";
+  await F.photosReady();
   family = createFamily(renderer, isMobile);
   fishWorld = createFishWorld(renderer, isMobile);
   const st0 = jungle.stops[0];
@@ -598,7 +725,7 @@ $("#enter").addEventListener("click", () => {
   mode = "jungle";
   document.body.dataset.mode = "jungle";
   toast(T("hint"));
-  arrive(0);
+  arrive(nav.stop);
   if (isMobile) try { document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {}); } catch (e) {}
 });
 
@@ -612,5 +739,21 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http") && loca
 }
 
 // handy for testing from the console / screenshots
-window.zoo = { goTo: i => goTo(i), info: () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries }),
-  jump(i) { const st = jungle.stops[i]; nav.route = null; nav.stop = i; nav.u = st.u; nav.onBoard = st.kind === "pond"; const d = st.look.clone().sub(camAtStop(st)); nav.yaw = yawTo(d); nav.pitch = pitchTo(d); markChip(i); }, openFamily, openFish, closeFamily, closeFish, get stops() { return jungle && jungle.stops; }, get mode() { return mode; } };
+window.zoo = {
+  goTo: i => goTo(i),
+  info: () => ({ ...renderer.info.render, geometries: renderer.info.memory.geometries }),
+  jump(i) { const st = jungle.stops[i]; nav.route = null; nav.stop = i; nav.u = st.u; nav.onBoard = st.kind === "pond"; const d = st.look.clone().sub(camAtStop(st)); nav.yaw = yawTo(d); nav.pitch = pitchTo(d); markChip(i); },
+  openFamily, openFish, openPlant, closeFamily, closeFish,
+  get stops() { return jungle && jungle.stops; }, get mode() { return mode; },
+  budget() {
+    const rows = {};
+    jungle.scene.traverse(o => {
+      if (!o.isMesh || !o.visible) return;
+      const g = o.geometry, tri = (g.index ? g.index.count : g.attributes.position.count) / 3;
+      const n = o.isInstancedMesh ? o.count : 1;
+      const k = (o.isInstancedMesh ? "inst:" : "mesh:") + (o.parent && o.parent.name || o.name || "") + ":" + Math.round(tri) + (o.isInstancedMesh ? "×" + o.count : "");
+      rows[k] = (rows[k] || 0) + tri * n;
+    });
+    return Object.entries(rows).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => k + " = " + Math.round(v / 1000) + "k");
+  },
+};
