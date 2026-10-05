@@ -179,10 +179,12 @@ Language modes (centre profile `language_mode`, or `L` in dev builds):
 4. **Score top right: +1 for the asked item, −1 for a wrong pop** (decoy or bee). The score
    can go below 0 (shown in red). A wrong pop also gives a light red flash over the
    screen. Each popped bubble shows "+1" / "−1" and its name. Big score at the end.
-5. **One hand pops**: each child's pointer is the raised hand (wrist above elbow), the
-   clearly higher one if both are up. The other hand never pops. Only the fingertip point
-   touches (no finger keypoints in the pose model: the tip sits just beyond the wrist
-   along the forearm). It must be moving, and a small gold cursor shows it. 2 / 3 / 4 correct pops (Easy / Medium / Hard) win a round.
+5. **Pop with one finger**: with hand tracking running, only a hand showing **POINT**
+   (index finger up, others folded) pops, at its index fingertip. The tracked hands are
+   drawn faintly (the pointing one in gold) and a gold cursor marks the fingertip.
+   Without hand tracking it falls back to the arm pointer: the raised hand (the clearly
+   higher one if both are up), tip estimated beyond the wrist, moving to pop.
+   `pointer: finger | arm` in `bubble_pop.yaml`. 2 / 3 / 4 correct pops (Easy / Medium / Hard) win a round.
 6. No luck for 14 s: hint. Bubbles slow down and drift to the hands. After a second
    timeout, a gentle move on.
 
@@ -201,13 +203,13 @@ All of it is tunable in `content/games/bubble_pop.yaml` (`levels:`).
   fingertip glides between poses with its velocity, so it moves every frame.
 - For a snappier pointer try `camera_opts.framerate: 50` and watch the fps in
   `./run.sh debug` (the Pi must keep up with pose decoding at that rate).
-- **Hand tracking (dev, stage 1):** `./run.sh handprobe` shows live hand tracking: 21
-  points per hand (all five fingers), finger count and open / fist / **POINT**, with zoomed
-  hand views and timings. Hands are cut from a 1920×1080 frame around the pose wrists and
-  run through the MediaPipe Hand Landmarker on the CPU. Setup once (internet):
+- **Hand tracking:** 21 points per hand (all five fingers), MediaPipe Hand Landmarker on
+  the CPU. The camera captures 1920×1080 (`camera_opts.main_size`); hands are cut out
+  around the pose wrists; the game still gets 960×540 (`transport_size`). It runs only
+  while a game subscribes (Bubble Pop), so other games cost nothing. Setup once (internet):
   `.env/bin/pip install -r vision/requirements-hands.txt` and
-  `vision/tools/fetch_hand_model.sh`. Stop the vision service first (camera). Stage 2
-  (pending): Bubble Pop pops with the pointing index finger.
+  `vision/tools/fetch_hand_model.sh`. Without them, Bubble Pop uses the arm pointer.
+  `./run.sh handprobe` shows the tracking live (stop the vision service first).
 
 - Camera JPEG decoding runs on a worker thread, not the game's main thread.
 - Bubble looks are drawn once into textures (one draw per bubble per frame).

@@ -25,6 +25,8 @@ const BAKE_PX := 256            # baked bubble texture size
 const BAKE_R := 120.0           # bubble radius inside the baked texture
 const GOOD := Color(0.45, 0.95, 0.45)
 const BAD := Color(1.0, 0.45, 0.4)
+const HAND_BONES := [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10],
+	[10, 11], [11, 12], [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]]
 const PREDICT_MAX_S := 0.06     # fingertip glides ahead of the last pose by at most this
 const FLASH_S := 0.45           # wrong-pop red flash
 const FLASH_ALPHA := 0.22
@@ -57,7 +59,8 @@ var bubbles: Array = []
 var _floaters: Array = []       # popped item names rising and fading: {pos, text, color, t}
 var _rings: Array = []          # pop rings: {pos, r, t, color}
 var _spawn_t := 0.0
-var _tips: Dictionary = {}      # player → {pos, vel (px/s), at (s, pose arrival), seq}
+var _tips: Dictionary = {}      # pointer key → {pos, vel (px/s), at (s, update arrival), seq, side}
+var pointer_mode := "arm"       # finger (21-point hand tracking) | arm (fallback)
 var _pointer_side: Dictionary = {}   # player → "l" | "r" (sticky, see pointer_switch_margin)
 var _pointers: Array = []       # this frame: [{player, pos (px), moving}]
 var _photos: Dictionary = {}    # item id → photo texture
@@ -73,6 +76,7 @@ var _t := 0.0
 func _init() -> void:
 	game_id = "bubble_pop"
 	needs_frames = true
+	needs_hands = true
 	camera_mode = "mirror"
 	for i in 40:
 		var a := TAU * i / 40.0
@@ -146,6 +150,9 @@ func start() -> void:
 		await AudioDirector.say(intro, Settings.prompt_langs(0))
 	if bees_on() and str(content.get("bee_intro_line", "")) != "" and is_inside_tree():
 		await AudioDirector.say(str(content["bee_intro_line"]), Settings.prompt_langs(0))
+	var finger_line := str(content.get("finger_intro_line", ""))
+	if finger_line != "" and str(d("pointer", "finger")) == "finger" and VisionClient.hands_fresh() and is_inside_tree():
+		await AudioDirector.say(finger_line, Settings.prompt_langs(0))
 	if st == St.DONE or not is_inside_tree():
 		return
 	_next_round()
@@ -381,15 +388,56 @@ func _update_effects(delta: float) -> void:
 	_rings.resize(n)
 
 
-## One fingertip per active child: [{player, pos (screen px), moving}].
-## Smoothing happens once, in the vision service (One Euro filter). Here the tip only
-## glides between poses (≈30/s) with its velocity, so it moves every frame (60/s).
+## The popping points this frame: [{player, pos (screen px), moving}], one per child.
+## pointer: finger (default) → the index fingertip of a hand showing POINT (21-point hand
+## tracking from the vision service); when hand tracking isn't running (not installed,
+## no model) it falls back to the arm pointer. pointer: arm → always the arm pointer.
+## Smoothing happens once, in the vision service (One Euro). Here the tip only glides
+## between updates with its velocity, so it moves every frame.
 func _find_pointers(_delta: float, view: Vector2) -> Array:
+	var finger: bool = str(d("pointer", "finger")) == "finger" and VisionClient.hands_fresh()
+	pointer_mode = "finger" if finger else "arm"
+	var out := _finger_pointers(view) if finger else _arm_pointers(view)
+	var seen := {}
+	for h in out:
+		seen[h["key"]] = true
+	for k in _tips.keys():
+		if not seen.has(k):
+			_tips.erase(k)
+	return out
+
+
+## Index fingertips of hands showing POINT; if a child points with both, the higher one.
+func _finger_pointers(view: Vector2) -> Array:
+	var active := {}
+	for p in VisionClient.active_people:
+		active[int(p.get("id", -1))] = true
+	var best := {}
+	for h in VisionClient.hands:
+		var pid := int(h.get("player", -1))
+		if str(h.get("gesture", "")) != "point" or not active.has(pid):
+			continue
+		if not best.has(pid) or float(h["tip"][1]) < float(best[pid]["tip"][1]):
+			best[pid] = h
+	var out: Array = []
+	var min_speed := float(d("min_hand_speed", 0.12)) * view.y
+	var needs_motion := bool(d("finger_needs_motion", false))
+	for pid in best:
+		var h: Dictionary = best[pid]
+		var raw := VisionClient.to_screen(Vector2(float(h["tip"][0]), float(h["tip"][1])), view)
+		var tp := _glide("f%d" % pid, raw, VisionClient.hands_received, str(h["side"]))
+		out.append({"player": pid, "key": "f%d" % pid, "pos": tp[0],
+			"moving": (not needs_motion) or (tp[1] as Vector2).length() >= min_speed})
+	return out
+
+
+## Arm pointer (no finger tracking): the raised hand (wrist above elbow), the clearly
+## higher one if both are up; the tip sits beyond the wrist along the forearm.
+func _arm_pointers(view: Vector2) -> Array:
 	var out: Array = []
 	var reach := float(d("pointer_reach", 0.35))
 	var margin := float(d("pointer_switch_margin", 0.06))
 	var min_speed := float(d("min_hand_speed", 0.12)) * view.y
-	var seen := {}
 	for p in VisionClient.active_people:
 		var pid := int(p.get("id", -1))
 		var tips := {}
@@ -409,25 +457,27 @@ func _find_pointers(_delta: float, view: Vector2) -> Array:
 			side = other            # clearly higher: it takes over
 		_pointer_side[pid] = side
 		var raw := VisionClient.to_screen(tips[side], view)
-		var now := Time.get_ticks_msec() / 1000.0
-		var tp: Dictionary = _tips.get(pid, {})
-		if tp.is_empty() or str(tp.get("side", "")) != side:
-			tp = {"pos": raw, "vel": Vector2.ZERO, "at": now, "seq": VisionClient.poses_received, "side": side}
-		elif int(tp["seq"]) != VisionClient.poses_received:   # a new pose arrived
-			var dt := maxf(0.005, now - float(tp["at"]))
-			tp["vel"] = (tp["vel"] as Vector2).lerp((raw - (tp["pos"] as Vector2)) / dt, 0.5)
-			tp["pos"] = raw
-			tp["at"] = now
-			tp["seq"] = VisionClient.poses_received
-		_tips[pid] = tp
-		var age := minf(now - float(tp["at"]), PREDICT_MAX_S)
-		var pos: Vector2 = tp["pos"] + (tp["vel"] as Vector2) * age
-		seen[pid] = true
-		out.append({"player": pid, "pos": pos, "moving": (tp["vel"] as Vector2).length() >= min_speed})
-	for k in _tips.keys():
-		if not seen.has(k):
-			_tips.erase(k)
+		var tp := _glide("a%d" % pid, raw, VisionClient.poses_received, side)
+		out.append({"player": pid, "key": "a%d" % pid, "pos": tp[0], "moving": (tp[1] as Vector2).length() >= min_speed})
 	return out
+
+
+## Velocity glide between updates → [position now, velocity px/s]. seq: the update counter
+## the raw point comes from (a new value = a new measurement).
+func _glide(key: String, raw: Vector2, seq: int, side: String) -> Array:
+	var now := Time.get_ticks_msec() / 1000.0
+	var tp: Dictionary = _tips.get(key, {})
+	if tp.is_empty() or str(tp.get("side", "")) != side:
+		tp = {"pos": raw, "vel": Vector2.ZERO, "at": now, "seq": seq, "side": side}
+	elif int(tp["seq"]) != seq:
+		var dt := maxf(0.005, now - float(tp["at"]))
+		tp["vel"] = (tp["vel"] as Vector2).lerp((raw - (tp["pos"] as Vector2)) / dt, 0.5)
+		tp["pos"] = raw
+		tp["at"] = now
+		tp["seq"] = seq
+	_tips[key] = tp
+	var age := minf(now - float(tp["at"]), PREDICT_MAX_S)
+	return [tp["pos"] + (tp["vel"] as Vector2) * age, tp["vel"]]
 
 
 func _nearest_hand(hands: Array, p: Vector2) -> Vector2:
@@ -554,6 +604,20 @@ func _draw() -> void:
 			_draw_bubble(bc, r * 0.5, bee)
 			draw_line(bc + Vector2(-r, -r) * 0.45, bc + Vector2(r, r) * 0.45, BAD, 7.0 * u)
 			draw_line(bc + Vector2(r, -r) * 0.45, bc + Vector2(-r, r) * 0.45, BAD, 7.0 * u)
+	if _playing() and pointer_mode == "finger":   # what the machine sees: the tracked hands
+		for h in VisionClient.hands:
+			var kp: Array = h.get("kp", [])
+			if kp.size() < 21:
+				continue
+			var pts := PackedVector2Array()
+			for q in kp:
+				pts.append(VisionClient.to_screen(Vector2(float(q[0]), float(q[1])), view))
+			var pointing := str(h.get("gesture", "")) == "point"
+			var col := Color(UiKit.GOLD, 0.8) if pointing else Color(1, 1, 1, 0.45)
+			for c2 in HAND_BONES:
+				draw_line(pts[c2[0]], pts[c2[1]], col, (4.0 if pointing else 3.0) * u)
+			if pointing:   # the popping finger, bold
+				draw_line(pts[5], pts[8], UiKit.GOLD, 7.0 * u)
 	if _playing():   # fingertip cursors: the only spots that pop
 		var tip_r := float(d("pointer_radius", 0.018)) * view.y
 		for h in _pointers:

@@ -30,6 +30,16 @@ def test_hello_carries_hardware():
     assert json.loads(P.dumps(P.hello("wide", [], False)))["hardware"] == {}
 
 
+def test_hands_message():
+    lm = [[0.1 * i / 20, 0.5] for i in range(21)]
+    h = P.hand_to_wire(3, "r", lm, [False, True, False, False, False], 1, "point")
+    assert h["tip"] == h["kp"][8] and len(h["kp"]) == 21 and h["gesture"] == "point"
+    d = json.loads(P.dumps(P.hands(9, [h])))
+    assert d["t"] == "hands" and d["frame_id"] == 9 and d["hands"][0]["player"] == 3
+    with pytest.raises(P.ProtocolError):
+        P.hand_to_wire(3, "r", lm, [False] * 5, 0, "wave")
+
+
 def test_button_rejects_bad_state():
     assert P.button("up")["state"] == "up"
     with pytest.raises(P.ProtocolError):
@@ -62,7 +72,8 @@ def test_person_wire_keeps_anatomical_names():
 @pytest.mark.parametrize("text,expected", [
     ('{"t":"subscribe"}', {"t": "subscribe", **P.SUBSCRIBE_DEFAULTS}),
     ('{"t":"subscribe","frames":false,"motion":["hop"]}',
-     {"t": "subscribe", "frames": False, "mask": False, "loudness": False, "motion": ["hop"]}),
+     {"t": "subscribe", "frames": False, "mask": False, "loudness": False, "motion": ["hop"], "hands": False}),
+    ('{"t":"subscribe","hands":true}', {"t": "subscribe", **dict(P.SUBSCRIBE_DEFAULTS, hands=True)}),
     ('{"t":"set_players","mode":"duo"}', {"t": "set_players", "mode": "duo"}),
     ('{"t":"set_camera","camera":"noir"}', {"t": "set_camera", "camera": "noir"}),
     ('{"t":"set_camera","camera":"imx500"}', {"t": "set_camera", "camera": "imx500"}),

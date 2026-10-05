@@ -19,6 +19,7 @@ class Client:
         self.sub = dict(P.SUBSCRIBE_DEFAULTS)
         self.events = collections.deque(maxlen=512)
         self.pose = None
+        self.hands = None
         self.frame = None
         self.wake = asyncio.Event()
 
@@ -29,6 +30,11 @@ class Client:
     def set_pose(self, text):
         self.pose = text
         self.wake.set()
+
+    def set_hands(self, text):
+        if self.sub.get("hands"):
+            self.hands = text
+            self.wake.set()
 
     def set_frame(self, data):
         if self.sub["frames"]:
@@ -43,6 +49,9 @@ class Client:
                 await self.ws.send(self.events.popleft())
             if self.pose is not None:
                 text, self.pose = self.pose, None
+                await self.ws.send(text)
+            if self.hands is not None:
+                text, self.hands = self.hands, None
                 await self.ws.send(text)
             if self.frame is not None:
                 data, self.frame = self.frame, None
@@ -89,6 +98,8 @@ class VisionServer:
             c.sub = {k: m[k] for k in P.SUBSCRIBE_DEFAULTS}
             if not c.sub["frames"]:
                 c.frame = None
+            if not c.sub["hands"]:
+                c.hands = None
             self._update_frames_wanted()
         elif t == "set_players":
             self.source.set_players(m["mode"])
@@ -114,6 +125,8 @@ class VisionServer:
 
     def _update_frames_wanted(self):
         self.source.set_frames_wanted(any(c.sub["frames"] for c in self.clients))
+        if hasattr(self.source, "set_hands_wanted"):
+            self.source.set_hands_wanted(any(c.sub.get("hands") for c in self.clients))
 
     # ---- pumps ----
     async def pump_results(self):
@@ -149,6 +162,19 @@ class VisionServer:
             for c in self.clients:
                 c.set_frame(data)
 
+    async def pump_hands(self):
+        slot = getattr(self.source, "hands_results", None)
+        if slot is None:
+            return
+        seq = 0
+        while True:
+            seq, msg = await asyncio.to_thread(slot.wait_newer, seq, 0.25)
+            if msg is None or not self.clients:
+                continue
+            text = P.dumps(msg)
+            for c in self.clients:
+                c.set_hands(text)
+
     async def pump_status(self):
         while True:
             await asyncio.sleep(self.cfg["status_every_s"])
@@ -169,7 +195,7 @@ class VisionServer:
             if ready is not None:
                 ready.set()
             tasks = [asyncio.create_task(x()) for x in
-                     (self.pump_results, self.pump_frames, self.pump_status)]
+                     (self.pump_results, self.pump_frames, self.pump_hands, self.pump_status)]
             try:
                 if stop_event is None:
                     await asyncio.Future()

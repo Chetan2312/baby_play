@@ -8,6 +8,8 @@ Synthetic child control:
     `react_s`, holds it for `hold_s`, then returns to neutral
   - stdin commands (tools/mock_server.py): a check name, "neutral", "away", "back"
   - --auto: cycles through all poses by itself
+  - hands (when a game subscribes): a raised RIGHT hand points (index finger), a raised
+    LEFT hand is open, so finger games can be built without the hand model
 """
 import base64
 import io
@@ -19,6 +21,7 @@ import time
 
 import numpy as np
 
+from . import protocol as P
 from .analysis import AnalysisResult, Analyzer
 from .gestures import SKELETON
 from .perf import PerfLog
@@ -134,6 +137,34 @@ class _FramePainter:
         return out.getvalue()
 
 
+def synthetic_hands(people):
+    """Fake 21-point hands for raised arms (display coords): right = point, left = open."""
+    out = []
+    for p in people:
+        if not p.get("active"):
+            continue
+        for side in ("l", "r"):
+            w, e = p["kp"].get(f"{side}_wrist"), p["kp"].get(f"{side}_elbow")
+            if not (w and e and w[2] > 0.35 and e[2] > 0.35 and w[1] < e[1] + 0.01):
+                continue
+            d = np.array([w[0] - e[0], w[1] - e[1]])
+            n = np.linalg.norm(d) or 1.0
+            d = d / n
+            perp = np.array([-d[1], d[0]])
+            L = n * 0.6
+            base = np.array(w[:2])
+            pts = [base]
+            pointing = side == "r"
+            for k, off in enumerate((-0.45, -0.2, 0.0, 0.2, 0.4)):   # thumb, index … pinky
+                up = (k == 1) if pointing else True
+                for j in range(1, 5):
+                    reach = L * (0.3 + 0.18 * j) if up else L * (0.35 + 0.05 * j)
+                    pts.append(base + d * reach + perp * L * off * (1.0 if up else 0.5))
+            ext = [k == 1 if pointing else True for k in range(5)]
+            out.append(P.hand_to_wire(p["id"], side, pts, ext, sum(ext), "point" if pointing else "open"))
+    return out
+
+
 class MockSource:
     camera_name = "mock"
     mic = False
@@ -151,7 +182,9 @@ class MockSource:
         self.analyzer = Analyzer(cfg, FRAME)
         self.results = LatestSlot()
         self.frames = LatestSlot()
-        self.perf = PerfLog("/tmp/takatak_mock_perf.log", 3600, ("cam", "pose", "frames"))
+        self.hands_results = LatestSlot()
+        self._want_hands = threading.Event()
+        self.perf = PerfLog("/tmp/takatak_mock_perf.log", 3600, ("cam", "pose", "frames", "hands"))
         self.models = ["pose"]
         self._want_frames = threading.Event()
         self._quit = threading.Event()
@@ -173,6 +206,9 @@ class MockSource:
 
     def set_frames_wanted(self, wanted):
         (self._want_frames.set if wanted else self._want_frames.clear)()
+
+    def set_hands_wanted(self, wanted):
+        (self._want_hands.set if wanted else self._want_hands.clear)()
 
     def mock_expect(self, name):
         if name:
@@ -207,7 +243,11 @@ class MockSource:
             self.last_kp = kp
             persons = [] if kp is None else [Person(bbox_of(kp), 0.9, kp)]
             fid += 1
-            self.results.put(self.analyzer.process(persons, FRAME, now, fid))
+            res = self.analyzer.process(persons, FRAME, now, fid)
+            self.results.put(res)
+            if self._want_hands.is_set():
+                self.hands_results.put(P.hands(fid, synthetic_hands(res.pose_msg["people"])))
+                self.perf.rates["hands"].tick()
             self.perf.rates["pose"].tick()
             self.perf.rates["cam"].tick()
             time.sleep(1.0 / self.pose_hz)

@@ -1,6 +1,6 @@
 # Vision ↔ Game protocol (v1)
 
-Additions since Phase 2 (`hello.hardware`, `button`, `imx500`) are additive: the version stays 1.
+Additions since Phase 2 (`hello.hardware`, `button`, `imx500`, `hands`) are additive: the version stays 1.
 
 Source of truth: `vision/takatak_vision/protocol.py`. Mirror: `game/autoload/VisionClient.gd`.
 Tests: `vision/tests/test_protocol.py`, `vision/tests/test_server.py`.
@@ -28,6 +28,7 @@ Keypoints: `nose l_eye r_eye l_ear r_ear l_shoulder r_shoulder l_elbow r_elbow l
 |---|---|---|
 | `hello` | `version, camera, models[], mic, mirror, errors[], hardware{}` | Sent first on every connection. `hardware`: boot probe for the status screen: `profile, accelerator, accelerator_expected, accelerator_present, model, cameras[], audio[], mic, network, errors[]` (`{}` when unknown) |
 | `pose` | `frame_id, people[{id, active, conf, bbox[x1,y1,x2,y2], scale, kp{}}]` | Every inference frame. Latest wins (a slow client skips some). Includes everyone; `active` marks player(s) |
+| `hands` | `frame_id, hands[{player, side, gesture, count, fingers[5], tip[x,y], kp[21][x,y]}]` | Only while subscribed with `hands: true`. 21-point hand landmarks (MediaPipe order: wrist, thumb 1–4, index 5–8, middle 9–12, ring 13–16, pinky 17–20), display coords, mirrored like pose. `gesture`: `point` (index only) · `open` · `fist` · `other`. `tip` = index fingertip. Latest wins. Sent for every processed frame, even with an empty list, so the game knows hand tracking runs |
 | `gesture` | `player, name, state, confidence` | `state`: `start` → `held` → `end`. `name` is a static check or `neutral`. Sent only for active players. Never dropped |
 | `motion` | `player, name, confidence, count` | Phase P7 |
 | `loudness` | `db, speaking` | Phase P5 (sent only when subscribed) |
@@ -45,7 +46,7 @@ Static gesture names: `touch_nose touch_head touch_ear hands_up touch_tummy touc
 
 | `t` | Fields | Notes |
 |---|---|---|
-| `subscribe` | `frames, mask, loudness, motion[]` | Defaults: frames on, everything else off |
+| `subscribe` | `frames, mask, loudness, motion[], hands` | Defaults: frames on, everything else off. `hands: true` starts hand tracking (CPU) |
 | `set_players` | `mode`: `single` \| `duo` | Duo: one active player per screen half |
 | `set_camera` | `camera`: `wide` \| `noir` \| `imx500` \| `auto` | With one camera connected, that camera is used whatever is asked |
 | `set_difficulty` | `difficulty`: `toddler` \| `kid` | Picks the static gesture tolerances (addition to the brief) |

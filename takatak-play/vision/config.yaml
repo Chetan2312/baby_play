@@ -19,7 +19,8 @@ profiles:
 camera: default                   # default (profile's) | wide | noir | imx500 | auto (game: set_camera)
 camera_index: { wide: 0, noir: 1, imx500: 0 }  # fallback if sensor model names can't be matched
 camera_opts:
-  main_size: [960, 540]           # display/transport stream (ISP scales; JPEG'd for the game)
+  main_size: [1920, 1080]         # capture: hand tracking cuts the hands from this
+  transport_size: [960, 540]      # JPEG for the game (main is downscaled to this)
   framerate: 30                   # try 50 for a snappier pointer (camera latency ↓, pose rate ↑) if the Pi keeps up: check ./run.sh debug fps
   auto_brightness_threshold: 60   # camera: auto → mean luma (0-255) below this picks noir
   auto_probe_frames: 15
@@ -133,6 +134,16 @@ gpio_button:
   enabled: false
   pin: 17                         # BCM numbering; button to GND, internal pull-up
   bounce_s: 0.05
+
+# Hand tracking (21 landmarks per hand, MediaPipe on the CPU): runs only while a game
+# subscribes to hands (Bubble Pop). Needs vision/requirements-hands.txt + the model file
+# (vision/tools/fetch_hand_model.sh); without them games fall back to the arm pointer.
+hands:
+  enabled: true
+  model: models/hand_landmarker.task
+  only_raised: true               # track only raised hands (wrist above elbow): pointing is up
+  box_scale: 2.4                  # hand box side ÷ estimated hand length
+  min_conf: 0.4
 
 privacy:
   save_frames: false              # the service never writes frames; must stay false

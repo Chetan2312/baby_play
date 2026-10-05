@@ -32,14 +32,15 @@ DIFFICULTIES = ("toddler", "kid")
 BUTTON_STATES = ("down", "up")
 
 # vision → game
-VISION_TYPES = ("hello", "pose", "gesture", "motion", "loudness", "echo_ready", "keyword",
+VISION_TYPES = ("hello", "pose", "hands", "gesture", "motion", "loudness", "echo_ready", "keyword",
                 "status", "no_player", "button", "pong", "error")
+HAND_GESTURES = ("point", "open", "fist", "other")
 # game → vision ("set_difficulty" picks static gesture tolerances; "mock_expect" is
 # honoured only by tools/mock_server.py so games can be built without a camera)
 GAME_TYPES = ("subscribe", "set_players", "set_camera", "set_difficulty",
               "mic_listen_start", "mic_listen_stop", "ping", "mock_expect")
 
-SUBSCRIBE_DEFAULTS = {"frames": True, "mask": False, "loudness": False, "motion": []}
+SUBSCRIBE_DEFAULTS = {"frames": True, "mask": False, "loudness": False, "motion": [], "hands": False}
 
 
 class ProtocolError(ValueError):
@@ -106,6 +107,21 @@ def hello(camera, models, mic, errors=(), mirror=True, hardware=None):
 
 def pose(frame_id, people, ts=None):
     return message("pose", ts, frame_id=int(frame_id), people=people)
+
+
+def hand_to_wire(player, side, landmarks_display, fingers, count, hand_gesture):
+    """landmarks_display: (21, 2+) normalised display coords (already mirrored)."""
+    if hand_gesture not in HAND_GESTURES:
+        raise ProtocolError(f"bad hand gesture {hand_gesture!r}")
+    kp = [[round(float(x), 4), round(float(y), 4)] for x, y in ((p[0], p[1]) for p in landmarks_display)]
+    return {"player": int(player), "side": side, "gesture": hand_gesture, "count": int(count),
+            "fingers": [bool(f) for f in fingers], "tip": kp[8], "kp": kp}
+
+
+def hands(frame_id, hand_list, ts=None):
+    """Latest-wins like pose. Sent for every processed frame while subscribed, even when
+    empty, so the game knows hand tracking is running."""
+    return message("hands", ts, frame_id=int(frame_id), hands=list(hand_list))
 
 
 def gesture(player, name, state, confidence, ts=None):

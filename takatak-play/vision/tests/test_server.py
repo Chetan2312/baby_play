@@ -51,12 +51,15 @@ def test_end_to_end_with_mock():
             server.button_threadsafe("down")   # GPIO thread → every client
             btn = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "button")
             assert btn["state"] == "down"
-            await ws.send(json.dumps({"t": "subscribe", "frames": True}))
+            await ws.send(json.dumps({"t": "subscribe", "frames": True, "hands": True}))
             pose = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "pose")
             assert pose["people"] and pose["people"][0]["active"]
             frame = await recv_until(ws, lambda m: isinstance(m, bytes))
             kind, _, jpg = P.unpack_binary(frame)
             assert kind == P.KIND_FRAME and jpg[:2] == b"\xff\xd8"
+            await ws.send(json.dumps({"t": "mock_expect", "name": "hands_up"}))
+            hands = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "hands" and m["hands"])
+            assert {h["gesture"] for h in hands["hands"]} == {"point", "open"}   # mock: right points
             await ws.send(json.dumps({"t": "mock_expect", "name": "touch_nose"}))
             held = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "gesture"
                                     and m["name"] == "touch_nose" and m["state"] == "held")

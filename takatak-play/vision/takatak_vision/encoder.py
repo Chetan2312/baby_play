@@ -12,6 +12,19 @@ except ImportError:  # dev machines; the Pi gets python3-simplejpeg with picamer
     simplejpeg = None
 
 
+def downscale(img, size):
+    """(H, W, C) uint8 → (size[1], size[0], C); exact halving/quartering by striding, else cv2."""
+    w, h = size
+    if img.shape[1] == w and img.shape[0] == h:
+        return img
+    fx, fy = img.shape[1] / w, img.shape[0] / h
+    try:
+        import cv2
+        return cv2.resize(img, (w, h), interpolation=cv2.INTER_LINEAR)
+    except ImportError:
+        return img[::max(1, int(round(fy))), ::max(1, int(round(fx)))][:h, :w]
+
+
 def encode_jpeg(rgbx, quality):
     """rgbx: (H, W, 3|4) uint8 in R,G,B(,X) order."""
     rgbx = np.ascontiguousarray(rgbx)
@@ -35,8 +48,9 @@ def encode_jpeg(rgbx, quality):
 
 
 class FrameEncoder(threading.Thread):
-    def __init__(self, camera_slot, quality, max_fps, mirror, rate=None):
+    def __init__(self, camera_slot, quality, max_fps, mirror, rate=None, size=None):
         super().__init__(daemon=True, name="encoder")
+        self.size = tuple(size) if size else None   # transport size (main is downscaled to it)
         self.camera_slot = camera_slot
         self.frames = LatestSlot()      # (frame_id, jpeg bytes)
         self.quality = quality
@@ -63,7 +77,8 @@ class FrameEncoder(threading.Thread):
             if now - last < period:
                 time.sleep(period - (now - last))
             last = time.monotonic()
-            img = bundle.main[:, ::-1] if self.mirror else bundle.main
+            img = downscale(bundle.main, self.size) if self.size else bundle.main
+            img = img[:, ::-1] if self.mirror else img
             try:
                 jpg = encode_jpeg(img, self.quality)
             except Exception as e:  # noqa: BLE001

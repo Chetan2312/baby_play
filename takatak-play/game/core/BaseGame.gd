@@ -20,6 +20,7 @@ signal finished(result: Dictionary)   # {rounds, successes, duration_s, events: 
 @export var motions: PackedStringArray = []
 @export var camera_mode := "mirror"   # mirror | cutout | hidden
 @export var movement := true          # counts towards movement_minutes (usage counters)
+@export var needs_hands := false      # 21-point hand tracking (VisionClient.hands)
 
 var config: Dictionary = {}
 var paused := false

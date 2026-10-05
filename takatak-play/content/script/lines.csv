@@ -266,3 +266,6 @@ bubble_bee_oops,encourage,1,en,"Oops, a bee! Let it fly away.",gentle,false,fals
 bubble_well_done,praise,1,mr,छान! सगळे फुगे संपले!,excited,false,false
 bubble_well_done,praise,1,hi,बहुत बढ़िया! सारे बुलबुले खत्म!,excited,false,false
 bubble_well_done,praise,1,en,Well done! All the bubbles are done!,excited,false,false
+bubble_point_intro,transition,1,mr,एका बोटाने फुगा फोडा!,playful,false,false
+bubble_point_intro,transition,1,hi,एक उंगली से बुलबुला फोड़ो!,playful,false,false
+bubble_point_intro,transition,1,en,Pop with one finger!,playful,false,false

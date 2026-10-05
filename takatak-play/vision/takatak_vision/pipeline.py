@@ -10,6 +10,7 @@ from .button import GpioButton
 from .camera import CameraThread, VideoThread, lores_size_for
 from .config import path
 from .encoder import FrameEncoder
+from .hands import HandThread
 from .perf import PerfLog
 from .pose import InferenceThread
 
@@ -32,7 +33,8 @@ class HardwareSource:
         self.button = GpioButton(cfg, self._button)
         scfg = cfg["server"]
         self.mirror = cfg["display"]["mirror"]
-        self.perf = PerfLog(path(cfg["paths"]["perf_log"]), cfg["perf"]["log_every_s"])
+        self.perf = PerfLog(path(cfg["paths"]["perf_log"]), cfg["perf"]["log_every_s"],
+                            ("cam", "pose", "frames", "hands"))
         main_size = tuple(cfg["camera_opts"]["main_size"])
         self.analyzer = Analyzer(cfg, lores_size_for(main_size, cfg["inference"]["input_size"]))
         if video:
@@ -41,9 +43,14 @@ class HardwareSource:
             self.cam = CameraThread(cfg, self.perf.rates["cam"])
         self.inf = InferenceThread(cfg, self.cam.slot, self.analyzer, self.perf)
         self.enc = FrameEncoder(self.cam.slot, scfg["jpeg_quality"], scfg["frame_fps"],
-                                self.mirror, self.perf.rates["frames"])
+                                self.mirror, self.perf.rates["frames"],
+                                cfg["camera_opts"].get("transport_size"))
         self.results = self.inf.results
         self.frames = self.enc.frames
+        self.hands = None
+        if (cfg.get("hands") or {}).get("enabled", False):
+            self.hands = HandThread(cfg, self.cam.slot, self.inf.results, self.mirror, self.perf.rates["hands"])
+        self.hands_results = self.hands.results if self.hands else None
         self._throttled = False
 
     @property
@@ -52,7 +59,10 @@ class HardwareSource:
 
     @property
     def models(self):
-        return [] if self.inf.error else ["pose"]
+        out = [] if self.inf.error else ["pose"]
+        if self.hands and self.hands.ready:
+            out.append("hands")
+        return out
 
     def _button(self, state):
         if self.on_button is not None:
@@ -63,18 +73,23 @@ class HardwareSource:
         for src in (self.cam, self.inf, self.button):
             if src.error:
                 out.append(src.error)
+        if self.hands and self.hands.error and self.hands.wanted.is_set():
+            out.append(self.hands.error)
         return out
 
     def start(self):
         for t in (self.cam, self.inf, self.enc):
             t.start()
+        if self.hands:
+            self.hands.start()
         self.button.start()
 
     def stop(self):
         self.button.stop()
-        for t in (self.cam, self.inf, self.enc):
+        threads = [t for t in (self.cam, self.inf, self.enc, self.hands) if t is not None]
+        for t in threads:
             t.stop()
-        for t in (self.cam, self.inf, self.enc):
+        for t in threads:
             t.join(timeout=2)
 
     # game controls
@@ -89,6 +104,10 @@ class HardwareSource:
 
     def set_frames_wanted(self, wanted):
         (self.enc.wanted.set if wanted else self.enc.wanted.clear)()
+
+    def set_hands_wanted(self, wanted):
+        if self.hands:
+            (self.hands.wanted.set if wanted else self.hands.wanted.clear)()
 
     def mock_expect(self, name):
         pass  # only the mock performer acts on this

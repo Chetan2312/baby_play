@@ -7,6 +7,7 @@ title: { mr: "फुगे फोडा", hi: "बुलबुले फोड�
 intro_line: bubble_intro
 bee_intro_line: bubble_bee_intro      # said at the start when the level has bees
 bee_oops_line: bubble_bee_oops        # after a bee pop (at most every bee_oops_every_s)
+finger_intro_line: bubble_point_intro # said at the start when finger tracking is running
 hint_prefix: bubble_pop_hint          # bubble_pop_hint_01, _02 …
 default_pack: local_fruits            # when the week's pack isn't one of the packs below
 session_level: { toddler: easy, kid: medium }   # level when the session plays it
@@ -18,9 +19,12 @@ picker:
 
 settings:                       # all levels
   spawn_x: [0.36, 0.82]         # where bubbles start (fraction of width): right of the prompt column
-  # One pointer per child: the RAISED hand (wrist above elbow); with both raised, the higher
-  # one. The other hand never pops. Only the fingertip point pops (no finger keypoints in
-  # the pose model: the tip sits beyond the wrist along the forearm).
+  # pointer: finger = pop with the index fingertip of a hand showing POINT (21-point hand
+  #   tracking, vision/config.yaml "hands"); falls back to "arm" when hand tracking isn't
+  #   running. arm = the raised hand's estimated fingertip (wrist + forearm direction).
+  pointer: finger
+  finger_needs_motion: false    # finger mode: a pointing finger pops even when held still
+  # Arm pointer: the RAISED hand (wrist above elbow); with both raised, the higher one.
   pointer_reach: 0.35           # fingertip = wrist + (wrist − elbow) × this
   pointer_radius: 0.018         # fingertip touch size (fraction of screen height)
   pointer_switch_margin: 0.06   # the other hand must be this much higher to take over

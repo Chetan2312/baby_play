@@ -7,6 +7,7 @@ extends Node
 signal connected_changed(connected: bool)
 signal hello_received(info: Dictionary)
 signal pose_updated(people: Array)
+signal hands_updated(hands: Array)  # 21-point hands, only while subscribed (subscribe(…, hands=true))
 signal gesture(player: int, gname: String, state: String, conf: float)
 signal motion(player: int, mname: String, conf: float, count: int)
 signal loudness(db: float, speaking: bool)
@@ -36,10 +37,13 @@ var frame_texture: ImageTexture = null
 var frame_size := DEFAULT_FRAME_SIZE
 var frames_received := 0
 var poses_received := 0
+var hands: Array = []         # [{player, side, gesture, count, fingers[5], tip[x,y], kp[21][x,y]}]
+var hands_received := 0
+var last_hands_ms := -100000
 var last_pose_ms := 0
 
 var _retry_at := 0.0
-var _sub := {"t": "subscribe", "frames": true, "mask": false, "loudness": false, "motion": []}
+var _sub := {"t": "subscribe", "frames": true, "mask": false, "loudness": false, "motion": [], "hands": false}
 var _sticky := {}   # set_players / set_camera / set_difficulty, re-sent after reconnect
 # JPEG decode runs on a worker thread (it took several ms per frame on the Pi's main
 # thread). One decode in flight; newer packets replace the waiting one (latest wins).
@@ -78,6 +82,7 @@ func _process(_delta: float) -> void:
 			_on_open()
 		var latest_frame := PackedByteArray()
 		var latest_pose = null
+		var latest_hands = null
 		while ws.get_available_packet_count() > 0:
 			var pkt := ws.get_packet()
 			if ws.was_string_packet():
@@ -86,6 +91,8 @@ func _process(_delta: float) -> void:
 					continue
 				if msg.get("t", "") == "pose":
 					latest_pose = msg          # latest-wins
+				elif msg.get("t", "") == "hands":
+					latest_hands = msg
 				else:
 					_handle(msg)
 			elif pkt.size() > 5:
@@ -94,6 +101,8 @@ func _process(_delta: float) -> void:
 					latest_frame = pkt         # decode only the newest frame
 		if latest_pose != null:
 			_handle(latest_pose)
+		if latest_hands != null:
+			_handle(latest_hands)
 		if latest_frame.size() > 0:
 			_decode_pending = latest_frame
 		_pump_decode()
@@ -134,6 +143,11 @@ func _handle(msg: Dictionary) -> void:
 			poses_received += 1
 			last_pose_ms = Time.get_ticks_msec()
 			pose_updated.emit(people)
+		"hands":
+			hands = msg.get("hands", [])
+			hands_received += 1
+			last_hands_ms = Time.get_ticks_msec()
+			hands_updated.emit(hands)
 		"gesture":
 			gesture.emit(int(msg.get("player", -1)), str(msg.get("name", "")), str(msg.get("state", "")), float(msg.get("confidence", 0.0)))
 		"motion":
@@ -207,8 +221,10 @@ func send(msg: Dictionary) -> void:
 		ws.send_text(JSON.stringify(msg))
 
 
-func subscribe(frames := true, mask := false, loud := false, motions: Array = []) -> void:
-	_sub = {"t": "subscribe", "frames": frames, "mask": mask, "loudness": loud, "motion": motions}
+func subscribe(frames := true, mask := false, loud := false, motions: Array = [], want_hands := false) -> void:
+	_sub = {"t": "subscribe", "frames": frames, "mask": mask, "loudness": loud, "motion": motions, "hands": want_hands}
+	if not want_hands:
+		hands = []
 	send(_sub)
 
 
@@ -243,6 +259,11 @@ func ping() -> void:
 ## The real vision service accepts and ignores it.
 func mock_expect(gname: String) -> void:
 	send({"t": "mock_expect", "name": gname})
+
+
+## Hand tracking is running (a hands message arrived recently).
+func hands_fresh(max_age_s := 0.6) -> bool:
+	return Time.get_ticks_msec() - last_hands_ms <= int(max_age_s * 1000.0)
 
 
 # ---- coordinates ---------------------------------------------------------------

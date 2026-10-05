@@ -263,6 +263,31 @@ func _run() -> void:
 	VisionClient.active_people = [person.call(0.7, 0.7)]            # both hanging
 	check(nb._find_pointers(0.016, view).is_empty(), "arms down → no pointer, nothing pops")
 	VisionClient.active_people = []
+	# finger mode: hand tracking running → only a hand showing POINT pops, at its index tip
+	var hand := func(gest: String, tip: Array) -> Dictionary:
+		var kp: Array = []
+		for i in 21:
+			kp.append([0.5, 0.5])
+		kp[8] = tip
+		return {"player": 7, "side": "r", "gesture": gest, "count": 1, "fingers": [false, true, false, false, false],
+			"tip": tip, "kp": kp}
+	VisionClient.active_people = [person.call(0.7, 0.7)]            # arms down: no arm pointer
+	VisionClient.hands = [hand.call("point", [0.55, 0.3])]
+	VisionClient.hands_received += 1
+	VisionClient.last_hands_ms = Time.get_ticks_msec()
+	ptrs = nb._find_pointers(0.016, view)
+	check(nb.pointer_mode == "finger" and ptrs.size() == 1, "finger mode: the pointing hand pops")
+	check(ptrs.size() == 1 and (ptrs[0]["pos"] as Vector2).distance_to(VisionClient.to_screen(Vector2(0.55, 0.3), view)) < 2.0,
+		"…at its index fingertip")
+	VisionClient.hands = [hand.call("open", [0.55, 0.3])]
+	VisionClient.hands_received += 1
+	check(nb._find_pointers(0.016, view).is_empty(), "an open hand doesn't pop")
+	VisionClient.last_hands_ms = -100000                            # hand tracking stopped
+	VisionClient.active_people = [person.call(0.3, 0.7)]
+	nb._find_pointers(0.016, view)
+	check(nb.pointer_mode == "arm", "no hand tracking → falls back to the arm pointer")
+	VisionClient.hands = []
+	VisionClient.active_people = []
 	var pool_ids: Array = nb._decoy_pool().map(func(x): return x["id"])
 	check(pool_ids.has("mango") and pool_ids.has("two" if nb.target["id"] != "two" else "one"),
 		"number decoys mix other numbers and fruits")

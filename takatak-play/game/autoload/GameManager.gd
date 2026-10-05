@@ -167,7 +167,7 @@ func run_game(game_id: String, extra := {}) -> bool:
 	var cfg := {"difficulty": Settings.difficulty, "content": ContentDB.game(game_id)}
 	cfg.merge(extra)
 	g.setup(cfg)
-	VisionClient.subscribe(g.needs_frames, g.needs_mask, g.needs_mic, Array(g.motions))
+	VisionClient.subscribe(g.needs_frames, g.needs_mask, g.needs_mic, Array(g.motions), g.needs_hands)
 	VisionClient.set_difficulty(Settings.difficulty)
 	camera_layer.set_mode(g.camera_mode)
 	mascot.go_home()

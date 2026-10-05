@@ -17,10 +17,15 @@ in memory; nothing is saved.
 """
 import math
 import os
+import threading
+import time
 
 import numpy as np
 
+from . import protocol as P
 from .config import path as vision_path
+from .slots import LatestSlot
+from .tracker import KeypointSmoother
 
 MODEL = "models/hand_landmarker.task"
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/"
@@ -150,3 +155,111 @@ class HandTracker:
 
     def close(self):
         self.forget(set())
+
+
+class HandThread(threading.Thread):
+    """Camera frames + latest pose → hand landmarks for the game (protocol "hands").
+
+    Runs only while `wanted` is set (a game subscribed to hands). Per frame, for each active
+    player's (raised) hand: box from the pose wrist/elbow in the high-resolution main frame
+    → HandTracker → One Euro smoothing (same filter as the pose keypoints) → display space.
+    """
+
+    def __init__(self, cfg, camera_slot, pose_slot, mirror, rate=None, tracker=None):
+        super().__init__(daemon=True, name="hands")
+        self.hcfg = cfg.get("hands") or {}
+        self.scfg = cfg["smoothing"]
+        self.camera_slot = camera_slot
+        self.pose_slot = pose_slot
+        self.mirror = mirror
+        self.rate = rate
+        self.results = LatestSlot()          # protocol "hands" message dicts
+        self.wanted = threading.Event()
+        self.error = None
+        self.ready = False
+        self._tracker = tracker
+        self._smoothers = {}
+        self._quit = threading.Event()
+
+    def stop(self):
+        self._quit.set()
+        self.wanted.set()
+
+    def _open(self):
+        if self._tracker is None:
+            self._tracker = HandTracker(self.hcfg.get("model", MODEL), float(self.hcfg.get("min_conf", 0.4)))
+        self.ready = True
+
+    def process(self, frame, people, frame_id, t_ms):
+        """One camera frame (camera orientation) + pose people (display coords) → message."""
+        fh, fw = frame.shape[:2]
+        only_raised = bool(self.hcfg.get("only_raised", True))
+        scale = float(self.hcfg.get("box_scale", 2.4))
+        out, keys = [], set()
+        for p in people:
+            if not p.get("active"):
+                continue
+            for side in ("l", "r"):
+                w, e = p["kp"].get(f"{side}_wrist"), p["kp"].get(f"{side}_elbow")
+                if not (w and e and w[2] > 0.35 and e[2] > 0.35):
+                    continue
+                if only_raised and not w[1] < e[1] + 0.01:
+                    continue
+                cam = (lambda q: ((1.0 - q[0]) if self.mirror else q[0], q[1]))
+                roi = hand_roi(cam(w), cam(e), fw, fh, scale=scale)
+                key = (int(p["id"]), side)
+                keys.add(key)
+                hand = self._tracker.track(key, frame, roi, t_ms)
+                if hand is None:
+                    self._smoothers.pop(key, None)
+                    continue
+                lm = self._smooth(key, hand["landmarks"], fw, fh, t_ms / 1000.0)
+                disp = mirror_x(lm) if self.mirror else lm
+                out.append(P.hand_to_wire(key[0], side, disp, hand["fingers"], hand["count"], hand["gesture"]))
+        self._tracker.forget(keys)
+        for k in list(self._smoothers):
+            if k not in keys:
+                del self._smoothers[k]
+        return P.hands(frame_id, out)
+
+    def _smooth(self, key, lm, fw, fh, now):
+        """One Euro on the 21 points, in the same pixel units as the pose filter (640 wide)."""
+        sm = self._smoothers.get(key)
+        if sm is None:
+            sm = self._smoothers[key] = KeypointSmoother(self.scfg, 0.0)
+        k = 640.0
+        arr = np.c_[lm[:, 0] * k, lm[:, 1] * k * fh / fw, np.ones(len(lm))]
+        arr = sm.update(arr, now)
+        out = np.array(lm, copy=True)
+        out[:, 0] = arr[:, 0] / k
+        out[:, 1] = arr[:, 1] / (k * fh / fw)
+        return out
+
+    def run(self):
+        seq = 0
+        while not self._quit.is_set():
+            if not self.wanted.wait(0.5):
+                continue
+            if not self.ready:
+                try:
+                    self._open()
+                except HandsError as e:
+                    self.error = str(e)
+                    self._quit.wait(5.0)      # don't retry in a tight loop
+                    continue
+            seq, bundle = self.camera_slot.wait_newer(seq, timeout=0.5)
+            if bundle is None or not self.wanted.is_set():
+                continue
+            _, res = self.pose_slot.get()
+            people = res.pose_msg["people"] if res is not None else []
+            try:
+                msg = self.process(bundle.main, people, bundle.frame_id, time.monotonic() * 1000)
+            except Exception as e:  # noqa: BLE001 - keep the service up; show it on the status line
+                self.error = f"Hand tracking: {e}"
+                continue
+            self.error = None
+            self.results.put(msg)
+            if self.rate:
+                self.rate.tick()
+        if self._tracker is not None:
+            self._tracker.close()
