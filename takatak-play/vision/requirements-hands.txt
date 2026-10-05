@@ -1,0 +1,9 @@
+# Optional: hand tracking (21 landmarks per hand) for ./run.sh handprobe.
+#   .env/bin/pip install -r vision/requirements-hands.txt
+#   vision/tools/fetch_hand_model.sh          (model file → vision/models/hand_landmarker.task)
+# Uses the MediaPipe Tasks API (HandLandmarker); runs on the CPU.
+mediapipe>=0.10.14
+# Keep numpy 1.x: picamera2 / simplejpeg / hailo come from apt, built against numpy 1.x.
+# The newest opencv-contrib-python (a mediapipe dependency) would pull numpy 2 and break them.
+numpy<2
+opencv-contrib-python<4.12
