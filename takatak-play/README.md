@@ -201,8 +201,11 @@ All of it is tunable in `content/games/bubble_pop.yaml` (`levels:`).
   fingertip glides between poses with its velocity, so it moves every frame.
 - For a snappier pointer try `camera_opts.framerate: 50` and watch the fps in
   `./run.sh debug` (the Pi must keep up with pose decoding at that rate).
-- Finger tracking feasibility: `vision/tools/hand_probe.py` (dev only) measures hand size
-  in pixels at play distance and lists installed hand-landmark models.
+- Finger tracking feasibility: `./run.sh handprobe` (dev only; stop the vision service
+  first, it needs the camera). A window shows the camera with a box around each hand:
+  green = big enough for finger models, gold = only from high-resolution sensor crops,
+  red = too small. Plus the median hand size, pose rate, verdict and any installed
+  hand-landmark models. `--no-window --seconds 20` for terminal only.
 
 - Camera JPEG decoding runs on a worker thread, not the game's main thread.
 - Bubble looks are drawn once into textures (one draw per bubble per frame).

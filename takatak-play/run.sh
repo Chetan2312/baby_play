@@ -8,6 +8,7 @@
 #   ./run.sh play-mock        mock server + game
 #   ./run.sh record [args]    record a session (keypoints only by default)
 #   ./run.sh clip [args]      DEV ONLY: record a video clip (needs --i-have-consent)
+#   ./run.sh handprobe [args] DEV ONLY: window showing hand sizes → is finger tracking feasible?
 #   ./run.sh content          draft voices → OGG → build JSON → lint
 #   ./run.sh test             pytest (vision + content tools)
 #   ./run.sh smoke            headless Godot session smoke test (no camera needed)
@@ -108,7 +109,7 @@ with_background() {  # run "$@" in background while the game runs, stop it after
 cmd="${1:-help}"
 [[ $# -gt 0 ]] && shift
 case "$cmd" in
-  mock|play-mock|debug|record|clip) export TAKATAK_BUILD="${TAKATAK_BUILD:-dev}" ;;
+  mock|play-mock|debug|record|clip|handprobe) export TAKATAK_BUILD="${TAKATAK_BUILD:-dev}" ;;
   *) export TAKATAK_BUILD="${TAKATAK_BUILD:-field}" ;;
 esac
 need() {  # dev tools are not in field packages
@@ -120,6 +121,7 @@ case "$cmd" in
   debug)     need vision/tools/debug_view.py; exec "$PY" vision/tools/debug_view.py "$@" ;;
   record)    need vision/tools/record_session.py; exec "$PY" vision/tools/record_session.py "$@" ;;
   clip)      need vision/tools/record_clip.py; exec "$PY" vision/tools/record_clip.py "$@" ;;
+  handprobe) need vision/tools/hand_probe.py; exec "$PY" vision/tools/hand_probe.py "$@" ;;
   game)      run_game "$@" ;;
   play)      with_background bash -c "cd '$ROOT/vision' && exec '$PY' -m takatak_vision.main"; run_game "$@" ;;
   play-mock) need vision/tools/mock_server.py; with_background "$PY" vision/tools/mock_server.py; run_game --windowed "$@" ;;
@@ -141,5 +143,5 @@ case "$cmd" in
     hailortcli fw-control identify || true
     rpicam-hello --list-cameras || true
     exec "$PY" -c "from picamera2 import Picamera2; [print(c) for c in Picamera2.global_camera_info()]" ;;
-  *) sed -n '2,19p' "$0" ;;
+  *) sed -n '2,20p' "$0" ;;
 esac
