@@ -38,7 +38,13 @@ def main():
     url = args.url or f"ws://{cfg['server']['host']}:{cfg['server']['port']}"
     main_w = cfg["camera_opts"]["main_size"][0]
     sizes, poses, camera = [], 0, cfg["camera"]
-    with connect(url, max_size=2 ** 22) as ws:
+    try:
+        ws = connect(url, max_size=2 ** 22)
+    except OSError as e:
+        sys.exit(f"Can't reach the vision service at {url} ({e}).\n"
+                 "Start it first in another terminal:  ./run.sh vision\n"
+                 "and wait for '[server] listening', then run this probe again.")
+    with ws:
         ws.send(json.dumps({"t": "subscribe", "frames": False}))
         t0 = time.monotonic()
         print(f"probing {args.seconds:.0f}s from {url} … move your hands on the mat")
