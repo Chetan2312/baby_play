@@ -171,28 +171,26 @@ Language modes (centre profile `language_mode`, or `L` in dev builds):
 1. Two picker cards: **Fruit bubbles** (`local_fruits` photos) and **Number bubbles**
    (`numbers_1_5`, numerals with dots to count). Picking one asks **Easy / Medium / Hard**.
    In a session, weeks 2 and 4 play it at the centre's age group (3–4 → Easy, 5–6 → Medium).
-2. The mascot asks for one item ("Pop number 1!"). A big copy of it sits under the prompt
-   card, so children who can't read see what to pop.
-3. Mixed in are **decoys** and, from Medium on, **bees** (red rim, crossed bee under the
-   prompt): don't pop those. Decoys by level: Easy = only other packs (number round →
-   fruit decoys, easy to tell apart) · Medium / Hard = other numbers *and* fruits.
-4. **Score top right: +1 for the asked item, −1 for a wrong pop** (decoy or bee). The score
-   can go below 0 (shown in red). A wrong pop also gives a light red flash over the
-   screen. Each popped bubble shows "+1" / "−1" and its name. Big score at the end.
-5. **Pop with one finger**: with hand tracking running, only a hand showing **POINT**
-   (index finger up, others folded) pops, at its index fingertip. The tracked hands are
-   drawn faintly (the pointing one in gold) and a gold cursor marks the fingertip.
-   Without hand tracking it falls back to the arm pointer: the raised hand (the clearly
-   higher one if both are up), tip estimated beyond the wrist, moving to pop.
-   `pointer: finger | arm` in `bubble_pop.yaml`. 2 / 3 / 4 correct pops (Easy / Medium / Hard) win a round.
-6. No luck for 14 s: hint. Bubbles slow down and drift to the hands. After a second
-   timeout, a gentle move on.
+2. **Bubbles fall from the top.** The mascot asks for one item ("Pop number 1!"). A big
+   copy of it sits under the prompt card with a counter (popped / dropped this round).
+3. **A round is a wave:** it drops 4 / 6 / 8 of the asked bubble (Easy / Medium / Hard),
+   mixed with **decoys** and, from Medium on, **bees** (red rim, crossed bee under the
+   prompt). **Every asked bubble popped counts.** The round ends when all of them are
+   popped (celebration) or have fallen past (a gentle word; missing costs no points).
+4. **Score top right: +1 for the asked item, −1 for a wrong pop** (decoy or bee). It can
+   go below 0 (shown in red); a wrong pop also flashes the screen light red.
+5. **Perfect game** (no wrong pop, nothing missed): fireworks, a trophy, a pulsing
+   "PERFECT!", confetti and a special line, for 7 s.
+6. **Pop with one finger**: with hand tracking running, only a hand showing **POINT**
+   pops, at its index fingertip (tracked hands drawn faintly, a gold fingertip cursor).
+   Without hand tracking it falls back to the arm pointer. `pointer: finger | arm`.
+7. Nothing popped for 14 s: hint. Bubbles slow down and drift to the hands.
 
-| Level | Rounds | Pops to win | Bubbles on screen | Speed | Bees | Decoys |
+| Level | Rounds | Asked bubbles per round | On screen | Speed | Bees | Decoys |
 |---|---|---|---|---|---|---|
-| Easy | 6 | 2 | 5 | slow | none | other packs |
-| Medium | 8 | 3 | 7 | medium | 12 % | all |
-| Hard | 10 | 4 | 9 | fast | 20 % | all |
+| Easy | 5 | 4 | 5 | slow | none | other packs |
+| Medium | 6 | 6 | 7 | medium | 12 % | all |
+| Hard | 8 | 8 | 9 | fast | 20 % | all |
 
 All of it is tunable in `content/games/bubble_pop.yaml` (`levels:`).
 

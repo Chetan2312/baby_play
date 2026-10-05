@@ -1,12 +1,15 @@
-# Bubble Pop: bubbles rise from the bottom. The mascot asks for one item ("Pop number 1!");
-# children pop bubbles with their hands. Mixed in: decoy bubbles (other items, from the
-# same pack and/or other packs) and, from Medium on, bee bubbles that must NOT be popped.
-# Scoreboard top right: ✓ correct pops (the asked item) · ✗ wrong pops (anything else).
+# Bubble Pop: bubbles FALL from the top. The mascot asks for one item ("Pop number 1!");
+# children pop bubbles with their pointing finger. Each round drops targets_per_round of
+# the asked bubble, mixed with decoys (other items) and, from Medium on, bees that must NOT
+# be popped. Every asked bubble popped counts (+1); a wrong pop is −1. The round ends when
+# all asked bubbles are popped or have fallen past. Perfect game (no wrong pop, nothing
+# missed) → fireworks + trophy.
 game: bubble_pop
 title: { mr: "फुगे फोडा", hi: "बुलबुले फोड़ो", en: "Bubble Pop" }
 intro_line: bubble_intro
 bee_intro_line: bubble_bee_intro      # said at the start when the level has bees
 bee_oops_line: bubble_bee_oops        # after a bee pop (at most every bee_oops_every_s)
+perfect_line: bubble_perfect          # perfect game
 finger_intro_line: bubble_point_intro # said at the start when finger tracking is running
 hint_prefix: bubble_pop_hint          # bubble_pop_hint_01, _02 …
 default_pack: local_fruits            # when the week's pack isn't one of the packs below
@@ -18,7 +21,7 @@ picker:
   - { pack: numbers_1_5,  title: { mr: "अंकांचे फुगे", hi: "अंकों के बुलबुले", en: "Number bubbles" } }
 
 settings:                       # all levels
-  spawn_x: [0.36, 0.82]         # where bubbles start (fraction of width): right of the prompt column
+  spawn_x: [0.36, 0.76]         # where bubbles drop (fraction of width): between the prompt column and the score
   # pointer: finger = pop with the index fingertip of a hand showing POINT (21-point hand
   #   tracking, vision/config.yaml "hands"); falls back to "arm" when hand tracking isn't
   #   running. arm = the raised hand's estimated fingertip (wrist + forearm direction).
@@ -30,19 +33,21 @@ settings:                       # all levels
   pointer_switch_margin: 0.06   # the other hand must be this much higher to take over
   min_hand_speed: 0.12          # screen heights/s: only a MOVING fingertip pops
   intro_arm_s: 0.8
-  prompt_timeout_s: 14          # counted only while no voice line is playing
-  hint_attempts: 1              # timeouts that get a hint (bubbles slow down and come to the hands)
+  prompt_timeout_s: 14          # nothing popped this long (voice lines don't count) → hint
+  hint_attempts: 1              # hints per round (bubbles slow down and come to the hands)
   hint_drift: 0.25              # screen fractions per second towards the nearest hand while hinting
   celebrate_s: 2.2
   summary_s: 4.5                # final scoreboard before the game ends
+  perfect_s: 7.0                # perfect game: fireworks this long
   bee_oops_every_s: 8
 
 # distractors: other_packs = decoys only from OTHER packs (number round → fruit decoys:
 #   easy to tell apart) · all = same pack + other packs (1 among 2, 3 … and fruits)
+# targets_per_round: asked bubbles dropped per round · fall_speed: screen heights per second
 levels:
-  easy:   { rounds: 6,  pops_to_win: 2, max_bubbles: 5, spawn_every_s: 1.1,  rise_speed: 0.065, bubble_radius: 0.09,  target_share: 0.6,  bee_share: 0.0,  distractors: other_packs }
-  medium: { rounds: 8,  pops_to_win: 3, max_bubbles: 7, spawn_every_s: 0.85, rise_speed: 0.09,  bubble_radius: 0.077, target_share: 0.45, bee_share: 0.12, distractors: all }
-  hard:   { rounds: 10, pops_to_win: 4, max_bubbles: 9, spawn_every_s: 0.6,  rise_speed: 0.13,  bubble_radius: 0.066, target_share: 0.35, bee_share: 0.2,  distractors: all }
+  easy:   { rounds: 5, targets_per_round: 4, max_bubbles: 5, spawn_every_s: 1.1,  fall_speed: 0.065, bubble_radius: 0.09,  target_share: 0.6,  bee_share: 0.0,  distractors: other_packs }
+  medium: { rounds: 6, targets_per_round: 6, max_bubbles: 7, spawn_every_s: 0.85, fall_speed: 0.09,  bubble_radius: 0.077, target_share: 0.45, bee_share: 0.12, distractors: all }
+  hard:   { rounds: 8, targets_per_round: 8, max_bubbles: 9, spawn_every_s: 0.6,  fall_speed: 0.13,  bubble_radius: 0.066, target_share: 0.35, bee_share: 0.2,  distractors: all }
 
 bee: { id: bee, word: word_bee, avoid: true, color: [1.0, 0.82, 0.15] }
 

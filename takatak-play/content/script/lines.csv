@@ -269,3 +269,6 @@ bubble_well_done,praise,1,en,Well done! All the bubbles are done!,excited,false,
 bubble_point_intro,transition,1,mr,एका बोटाने फुगा फोडा!,playful,false,false
 bubble_point_intro,transition,1,hi,एक उंगली से बुलबुला फोड़ो!,playful,false,false
 bubble_point_intro,transition,1,en,Pop with one finger!,playful,false,false
+bubble_perfect,praise,1,mr,वा! एकही चूक नाही! तुम्ही चॅम्पियन आहात!,excited,false,false
+bubble_perfect,praise,1,hi,वाह! एक भी गलती नहीं! तुम चैंपियन हो!,excited,false,false
+bubble_perfect,praise,1,en,Wow! Not a single mistake! You're a champion!,excited,false,false

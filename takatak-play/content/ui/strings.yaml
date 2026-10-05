@@ -75,3 +75,4 @@ level_easy:           {mr: "सोपे", hi: "आसान", en: "Easy", revie
 level_medium:         {mr: "मध्यम", hi: "मध्यम", en: "Medium", reviewed: false}
 level_hard:           {mr: "कठीण", hi: "कठिन", en: "Hard", reviewed: false}
 score_title:          {mr: "गुण", en: "Score", reviewed: false}
+perfect_title:        {mr: "परफेक्ट!", hi: "परफेक्ट!", en: "PERFECT!", reviewed: false}

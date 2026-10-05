@@ -3,8 +3,11 @@ extends "res://core/BaseGame.gd"
 ## children pop bubbles by reaching with their hands. Mixed in: decoys (other items: the
 ## same pack and/or other packs, by level) and, from Medium on, bees that must NOT be
 ## popped. Score top right: +1 for the asked item, −1 for a wrong pop (decoy or bee; the
-## score can go below 0) with a light red flash. pops_to_win correct pops win the round;
-## a big score closes the game.
+## score can go below 0) with a light red flash. Bubbles FALL from the top.
+## A round is a wave: targets_per_round of the asked bubble drop (mixed with decoys and
+## bees) and every one popped counts; the round ends when all of them are popped or have
+## fallen past. All popped → round celebration. Perfect game (no wrong pop, nothing
+## missed) → fireworks, trophy and "PERFECT!".
 ##
 ## Level: cfg "level" (easy | medium | hard, chosen on the picker), else the game's
 ## session_level for the centre's difficulty. Tunables: content/games/bubble_pop.yaml.
@@ -47,6 +50,11 @@ var target: Dictionary = {}
 var round_idx := 0
 var attempt := 1
 var hits := 0                   # correct pops this round
+var targets_spawned := 0        # asked bubbles dropped this round (≤ targets_per_round)
+var round_missed := 0           # asked bubbles that fell past this round
+var missed := 0                 # whole game
+var perfect := false            # summary: no wrong pop, nothing missed
+var _firework_t := 0.0
 var correct := 0                # whole game (usage counters)
 var wrong := 0
 var score := 0                  # shown: correct − wrong
@@ -176,8 +184,48 @@ func _next_round() -> void:
 	round_idx += 1
 	attempt = 1
 	hits = 0
+	targets_spawned = 0
+	round_missed = 0
+	bubbles.clear()            # last round's leftovers float away
 	target = _pick_target()
 	_intro()
+
+
+func per_round() -> int:
+	return int(d("targets_per_round", 5))
+
+
+func _targets_alive() -> int:
+	var n := 0
+	for b in bubbles:
+		if b["item"]["id"] == target["id"]:
+			n += 1
+	return n
+
+
+## All of this round's asked bubbles are dropped and none is left: popped or fallen past.
+func _check_round_over() -> void:
+	if _playing() and targets_spawned >= per_round() and _targets_alive() == 0:
+		if hits >= per_round():
+			_success()
+		else:
+			_round_partial()
+
+
+## Some asked bubbles fell past: no minus points, a gentle word, the item's name anyway.
+func _round_partial() -> void:
+	st = St.CELEBRATE
+	st_time = 0.0
+	_record("partial" if hits > 0 else "missed")
+	_hide_card()
+	GameManager.mascot.go_home()
+	GameManager.mascot.play("clap")
+	var langs := Settings.word_langs(round_idx - 1)
+	var rows: Array = []
+	for lang in langs:
+		rows.append([ContentDB.text(str(target["word"]), str(lang)), str(lang)])
+	GameManager.praise.show_word(rows, float(d("celebrate_s", 2.2)))
+	AudioDirector.encourage(Settings.prompt_langs(round_idx - 1))
 
 
 func _intro() -> void:
@@ -220,20 +268,19 @@ func _process(delta: float) -> void:
 		St.PLAY, St.HINT:
 			if not AudioDirector.is_speaking():
 				listen_time += delta
-			if listen_time >= float(d("prompt_timeout_s", 14.0)):
-				listen_time = 0.0
-				if attempt <= int(d("hint_attempts", 1)):
-					attempt += 1
-					_hint()
-				else:
-					_record("timeout")
-					AudioDirector.encourage(Settings.prompt_langs(round_idx - 1))
-					_next_round()
+			# nothing popped for a while: slow down and bring the bubbles to the hands
+			if hits == 0 and st == St.PLAY and listen_time >= float(d("prompt_timeout_s", 14.0)) \
+					and attempt <= int(d("hint_attempts", 1)):
+				attempt += 1
+				_hint()
 		St.CELEBRATE:
 			if st_time >= float(d("celebrate_s", 2.2)) and not AudioDirector.is_speaking():
 				_next_round()
 		St.SUMMARY:
-			if st_time >= float(d("summary_s", 4.5)) and not AudioDirector.is_speaking():
+			if perfect:
+				_fireworks(delta)
+			var hold := float(d("perfect_s", 7.0)) if perfect else float(d("summary_s", 4.5))
+			if st_time >= hold and not AudioDirector.is_speaking():
 				_finish_game()
 	queue_redraw()
 
@@ -266,17 +313,37 @@ func _success() -> void:
 	AudioDirector.say(str(target["word"]), langs)
 
 
-## Final scoreboard in the centre, then finish.
+## Final scoreboard in the centre, then finish. Perfect game: fireworks + trophy.
 func _summary() -> void:
 	st = St.SUMMARY
 	st_time = 0.0
 	_hide_card()
 	bubbles.clear()
+	perfect = wrong == 0 and missed == 0 and correct > 0
 	GameManager.mascot.go_spotlight()
-	GameManager.mascot.play("big_cheer", 3.0)
-	GameManager.praise.rain(90)
+	GameManager.mascot.play("big_cheer", float(d("perfect_s", 7.0)) if perfect else 3.0)
+	GameManager.praise.rain(220 if perfect else 90)
 	AudioDirector.sfx("success")
-	AudioDirector.say("bubble_well_done", Settings.prompt_langs(0))
+	if perfect:
+		_firework_t = 0.0
+		AudioDirector.say(str(content.get("perfect_line", "bubble_well_done")), Settings.prompt_langs(0))
+	else:
+		AudioDirector.say("bubble_well_done", Settings.prompt_langs(0))
+
+
+## Bursts of stars and gold rings all over the screen, a few per second.
+func _fireworks(delta: float) -> void:
+	_firework_t -= delta
+	if _firework_t > 0.0:
+		return
+	_firework_t = randf_range(0.18, 0.4)
+	var view := get_viewport_rect().size
+	var p := Vector2(randf_range(0.1, 0.9) * view.x, randf_range(0.1, 0.55) * view.y)
+	GameManager.praise.burst(p, 45, randf_range(650.0, 1000.0))
+	_rings.append({"pos": p, "r": view.y * randf_range(0.04, 0.08), "t": 0.0,
+		"color": [UiKit.GOLD, GOOD, Color(0.4, 0.8, 1.0), Color(1.0, 0.5, 0.8)].pick_random()})
+	if randf() < 0.5:
+		AudioDirector.sfx("sparkle")
 
 
 func _record(result: String) -> void:
@@ -291,7 +358,8 @@ func _finish_game() -> void:
 	_hide_card()
 	bubbles.clear()
 	finish({"game": game_id, "rounds": round_idx, "successes": successes, "results": results,
-		"correct": correct, "wrong": wrong, "score": score, "level": level, "pack": pack})
+		"correct": correct, "wrong": wrong, "missed": missed, "score": score, "perfect": perfect,
+		"level": level, "pack": pack})
 
 
 # ---- bubbles -------------------------------------------------------------------
@@ -313,21 +381,29 @@ func _decoy_pool() -> Array:
 func _spawn() -> void:
 	if target.is_empty():
 		return
-	var has_target := bubbles.any(func(b): return b["item"]["id"] == target["id"])
-	var it: Dictionary = target
+	var remaining := per_round() - targets_spawned
 	var roll := randf()
 	var bee_share := float(d("bee_share", 0.0)) if bees_on() else 0.0
-	if has_target and roll < bee_share:
+	var it: Dictionary = {}
+	if remaining > 0 and (_targets_alive() == 0 or (roll >= bee_share and roll < bee_share + float(d("target_share", 0.5)))):
+		it = target
+	elif roll < bee_share:
 		it = bee
-	elif has_target and roll >= bee_share + float(d("target_share", 0.5)):
+	else:
 		var pool := _decoy_pool()
 		if not pool.is_empty():
 			it = pool.pick_random()
+	if it.is_empty():
+		if remaining <= 0:
+			return
+		it = target
+	if it["id"] == target["id"]:
+		targets_spawned += 1
 	var r: float = float(d("bubble_radius", 0.08)) * randf_range(0.9, 1.1)
 	var xr: Array = settings.get("spawn_x", [0.36, 0.82])
 	var x0 := randf_range(float(xr[0]), float(xr[1]))
-	bubbles.append({"x0": x0, "x": x0, "y": 1.0 + r, "r": r, "item": it, "phase": randf() * TAU,
-		"speed": float(d("rise_speed", 0.08)) * randf_range(0.85, 1.15)})
+	bubbles.append({"x0": x0, "x": x0, "y": -r, "r": r, "item": it, "phase": randf() * TAU,
+		"speed": float(d("fall_speed", 0.08)) * randf_range(0.85, 1.15)})
 
 
 func _update_bubbles(delta: float) -> void:
@@ -347,15 +423,18 @@ func _update_bubbles(delta: float) -> void:
 	var i := 0
 	while i < bubbles.size():
 		var b: Dictionary = bubbles[i]
-		b["y"] -= float(b["speed"]) * slow * delta
+		b["y"] += float(b["speed"]) * slow * delta
 		b["phase"] += delta
 		if hinting and b["item"]["id"] == target["id"] and not hands.is_empty():
 			var h: Vector2 = _nearest_hand(hands, Vector2(b["x"] * view.x, b["y"] * view.y))
 			b["x0"] = move_toward(float(b["x0"]), h.x / view.x, drift)
 			b["y"] = move_toward(float(b["y"]), h.y / view.y, drift * 0.6)
 		b["x"] = float(b["x0"]) + sin(float(b["phase"]) * 1.3) * 0.02
-		if float(b["y"]) < -float(b["r"]):
-			bubbles.remove_at(i)        # floated away
+		if float(b["y"]) > 1.0 + float(b["r"]):
+			bubbles.remove_at(i)        # fell past the bottom
+			if b["item"]["id"] == target["id"] and _playing():
+				round_missed += 1
+				missed += 1
 			continue
 		var c := Vector2(b["x"] * view.x, b["y"] * view.y)
 		var rpx := float(b["r"]) * view.y
@@ -366,6 +445,7 @@ func _update_bubbles(delta: float) -> void:
 		i += 1
 	for b in popped:
 		pop_bubble(b)
+	_check_round_over()
 
 
 func _update_effects(delta: float) -> void:
@@ -515,7 +595,7 @@ func pop_bubble(b: Dictionary) -> void:
 		AudioDirector.sfx("pop")
 		AudioDirector.sfx("sparkle")
 		GameManager.praise.burst(c, 14, 420.0)
-		if hits >= int(d("pops_to_win", 2)):
+		if hits >= per_round():
 			_success()
 		elif not AudioDirector.is_speaking():
 			AudioDirector.say(str(it["word"]), Settings.prompt_langs(round_idx - 1))
@@ -599,8 +679,13 @@ func _draw() -> void:
 			top = clampf(panel.get_global_rect().end.y + 20.0 * u, view.y * 0.2, view.y * 0.6)
 		var c := Vector2(view.x * (0.05 + UiKit.SIDE_FRAC / 2.0), top + r)
 		_draw_bubble(c, r * (1.0 + 0.06 * sin(_t * 4.0)), target)
+		var fs := int(46 * u)   # progress: popped / dropped this round
+		var txt := "%d / %d" % [hits, per_round()]
+		var tp := c + Vector2(-r * 2.0, r * 1.25 + fs * 0.8)
+		draw_string_outline(font, tp, txt, HORIZONTAL_ALIGNMENT_CENTER, r * 4.0, fs, int(6 * u), UiKit.OUTLINE)
+		draw_string(font, tp, txt, HORIZONTAL_ALIGNMENT_CENTER, r * 4.0, fs, GOOD if hits > 0 else Color.WHITE)
 		if bees_on():   # small "don't pop" bee with a cross over it
-			var bc := c + Vector2(0, r * 1.75)
+			var bc := c + Vector2(0, r * 2.35)
 			_draw_bubble(bc, r * 0.5, bee)
 			draw_line(bc + Vector2(-r, -r) * 0.45, bc + Vector2(r, r) * 0.45, BAD, 7.0 * u)
 			draw_line(bc + Vector2(r, -r) * 0.45, bc + Vector2(-r, r) * 0.45, BAD, 7.0 * u)
@@ -624,8 +709,30 @@ func _draw() -> void:
 			draw_circle(h["pos"], tip_r * 1.6, Color(UiKit.GOLD, 0.35))
 			draw_circle(h["pos"], tip_r * 0.7, Color.WHITE)
 			draw_arc(h["pos"], tip_r * 1.6, 0.0, TAU, 24, UiKit.GOLD, 3.0 * u)
+	if st == St.SUMMARY and perfect:
+		_draw_trophy(view, u)
 	if st != St.IDLE and st != St.DONE:
 		_draw_score(view, u, st == St.SUMMARY)
+
+
+## Perfect game: a bobbing gold trophy and a pulsing "PERFECT!" above the big score.
+func _draw_trophy(view: Vector2, u: float) -> void:
+	var s := u * (1.15 + 0.06 * sin(_t * 5.0))
+	var c := Vector2(view.x / 2.0, view.y * 0.2 + sin(_t * 2.5) * 8.0 * u)
+	var gold := UiKit.GOLD
+	for side in [-1, 1]:
+		draw_arc(c + Vector2(side * 95, -40) * s, 40 * s, 0, TAU, 32, gold, 13 * s, true)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(-90, -100) * s, c + Vector2(90, -100) * s,
+		c + Vector2(70, 10) * s, c + Vector2(25, 45) * s, c + Vector2(-25, 45) * s, c + Vector2(-70, 10) * s]), gold)
+	draw_rect(Rect2(c + Vector2(-15, 40) * s, Vector2(30, 50) * s), gold)
+	draw_rect(Rect2(c + Vector2(-65, 88) * s, Vector2(130, 32) * s), Color(0.78, 0.55, 0.08))
+	draw_colored_polygon(UiKit.star_points(c + Vector2(0, -40) * s, 38 * s, _t), Color.WHITE)
+	var font := UiKit.font()
+	var title := "%s  %s" % [ContentDB.ui_text("perfect_title", Settings.primary_language), ContentDB.ui_text("perfect_title", "en")]
+	var fs := int(84 * u * (1.0 + 0.08 * sin(_t * 6.0)))
+	var tp := Vector2(0, view.y * 0.36)
+	draw_string_outline(font, tp, title, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, int(10 * u), UiKit.OUTLINE)
+	draw_string(font, tp, title, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, Color.from_hsv(fmod(_t * 0.25, 1.0), 0.45, 1.0))
 
 
 ## Score: top right (small) while playing, centre (big) on the summary. Star + number;

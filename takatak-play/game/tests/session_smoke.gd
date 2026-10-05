@@ -187,11 +187,24 @@ func _run() -> void:
 		await wait(0.2)
 	check(not bp.bubbles.is_empty(), "bubbles rise")
 	check(bp._photos.size() == 4, "fruit photos loaded (%d)" % bp._photos.size())
-	var wanted := int(bp.d("pops_to_win", 2))
+	var wanted: int = bp.per_round()
+	bp.targets_spawned = wanted                  # the whole wave is "dropped": only ours are on screen
+	bp.bubbles = bp.bubbles.filter(func(x): return x["item"]["id"] != bp.target["id"])
 	for i in wanted:
 		bp.bubbles.append({"x0": 0.5, "x": 0.5, "y": 0.5, "r": 0.08, "item": bp.target, "phase": 0.0, "speed": 0.0})
 		bp.pop_bubble(bp.bubbles[-1])
-	check(bp.successes == 1 and bp.st == bp.St.CELEBRATE, "popping the asked bubble wins the round")
+	check(bp.successes == 1 and bp.st == bp.St.CELEBRATE and bp.hits == wanted,
+		"popping every asked bubble of the wave wins the round")
+	for i in 200:                                 # next round: bubbles drop from the top
+		if bp.round_idx == 2 and not bp.bubbles.is_empty():
+			break
+		await wait(0.05)
+	check(not bp.bubbles.is_empty() and float(bp.bubbles[0]["y"]) < 0.5, "bubbles fall from the top")
+	bp.wrong = 0
+	bp.missed = 0
+	bp.correct = 5
+	bp._summary()
+	check(bp.perfect and bp.st == bp.St.SUMMARY, "no wrong pop, nothing missed → perfect celebration")
 	await press("supervisor")
 	await press("back", 0.3)
 	# free play: "Choose a game" — hand dwell picks, buttons move/start/back
