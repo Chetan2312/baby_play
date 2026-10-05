@@ -23,6 +23,9 @@ const LONG_S := 2.0
 const SUPERVISOR_HOLD_S := 5.0
 const TAPS_FOR_SUPERVISOR := 5
 const TAP_WINDOW_S := 4.0
+## Key auto-repeat on X11/XWayland can arrive as release+press pairs instead of one long
+## hold. A release only counts if no new press follows within this time.
+const RELEASE_GRACE_S := 0.15
 
 var _handlers: Array = []
 var _back_down := -1.0
@@ -30,6 +33,8 @@ var _back_sup := false
 var _single_down := -1.0       # GPIO / Space / tap / click: one shared button
 var _single_sup := false
 var _single_src := ""
+var _single_up_at := -1.0       # pending release (see RELEASE_GRACE_S)
+var _back_up_at := -1.0
 var _taps: Array = []
 
 
@@ -101,12 +106,18 @@ func _input(event: InputEvent) -> void:
 
 func _back_key(pressed: bool) -> void:
 	if pressed:
-		if _back_down < 0.0:
+		if _back_up_at >= 0.0:      # auto-repeat: still the same hold
+			_back_up_at = -1.0
+		elif _back_down < 0.0:
 			_back_down = _now()
 			_back_sup = false
 		return
-	if _back_down < 0.0:
-		return
+	if _back_down >= 0.0 and _back_up_at < 0.0:
+		_back_up_at = _now()
+
+
+func _back_released() -> void:
+	_back_up_at = -1.0
 	_back_down = -1.0
 	if _back_sup:
 		return
@@ -128,20 +139,42 @@ func _on_gpio(state: String) -> void:
 ## One press at a time: an "up" from a different source than the "down" is ignored.
 func _single(state: String, src: String) -> void:
 	if state == "down":
-		if _single_down < 0.0:
+		if _single_up_at >= 0.0 and src == _single_src:   # auto-repeat: still the same hold
+			_single_up_at = -1.0
+		elif _single_down < 0.0:
 			_single_down = _now()
 			_single_sup = false
 			_single_src = src
-	elif state == "up" and _single_down >= 0.0 and src == _single_src:
-		var held := _now() - _single_down
-		_single_down = -1.0
-		if _single_sup:
-			return
-		fire("next" if held < LONG_S else "long")
+	elif state == "up" and _single_down >= 0.0 and src == _single_src and _single_up_at < 0.0:
+		_single_up_at = _now()
+
+
+func _single_released() -> void:
+	var held := _single_up_at - _single_down
+	_single_up_at = -1.0
+	_single_down = -1.0
+	if _single_sup:
+		return
+	fire("next" if held < LONG_S else "long")
+
+
+## Seconds the single button (Space / tap / GPIO) or back key has been held, -1 if none:
+## the on-screen hold ring (StatusOverlay).
+func hold_seconds() -> float:
+	var t := -1.0
+	if _single_down >= 0.0 and _single_up_at < 0.0:
+		t = _now() - _single_down
+	if _back_down >= 0.0 and _back_up_at < 0.0:
+		t = maxf(t, _now() - _back_down)
+	return t
 
 
 func _process(_delta: float) -> void:
 	var now := _now()
+	if _single_up_at >= 0.0 and now - _single_up_at >= RELEASE_GRACE_S:
+		_single_released()
+	if _back_up_at >= 0.0 and now - _back_up_at >= RELEASE_GRACE_S:
+		_back_released()
 	if _back_down >= 0.0 and not _back_sup and now - _back_down >= SUPERVISOR_HOLD_S:
 		_back_sup = true
 		fire("supervisor")

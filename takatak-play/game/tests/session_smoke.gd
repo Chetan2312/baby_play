@@ -11,6 +11,7 @@ var _profile_existed := false
 
 func _ready() -> void:
 	_profile_existed = FileAccess.file_exists(Centre.USER_PATH)
+	Centre.set_value("landing", "session")   # the fixed-session start screen first; picker later
 	add_child(load("res://scenes/Main.tscn").instantiate())
 	await _run()
 	if not _profile_existed:
@@ -129,25 +130,26 @@ func _run() -> void:
 		await press("select", 0.1)
 	check(sup.page == sup.Page.MENU, "correct PIN → menu")
 	var week_before := Centre.week()
-	await press("select", 0.1)   # item 0: week
+	await press("next", 0.05)
+	await press("select", 0.1)   # item 1: week
 	check(Centre.week() != week_before, "week cycles")
 	while Centre.week() != week_before:
 		await press("select", 0.05)
 	for i in 7:
 		InputRouter.fire("next")
-	await press("select", 0.1)   # item 7: lift today's cap
+	await press("select", 0.1)   # item 8: lift today's cap
 	check(not Stats.cap_reached(Centre.int_value("max_sessions_per_day"), Centre.int_value("max_minutes_per_day")), "cap lifted")
 	await press("next", 0.05)
-	await press("select", 0.1)   # item 8: usage page
+	await press("select", 0.1)   # item 9: usage page
 	check(sup.page == sup.Page.USAGE, "usage page")
 	await press("back", 0.1)
 	for i in 3:
 		InputRouter.fire("next")
-	await press("select", 0.1)   # item 11: status page
+	await press("select", 0.1)   # item 12: status page
 	check(sup.page == sup.Page.STATUS and sup.status_lines().size() > 5, "status page")
 	await press("back", 0.1)
 	await press("prev", 0.05)
-	await press("select", 0.3)   # item 10: privacy page
+	await press("select", 0.3)   # item 11: privacy page
 	check(sup.page == sup.Page.PRIVACY, "privacy page")
 	await press("back", 0.1)
 	await press("back", 0.3)
@@ -196,32 +198,68 @@ func _run() -> void:
 		for i in d:
 			InputRouter.fire("next")
 		await press("select", 0.1)
-	for i in 12:
+	for i in 13:
 		InputRouter.fire("next")
-	await press("select", 0.3)   # item 12: choose a game (free play)
+	await press("select", 0.3)   # item 13: choose a game (free play)
 	var picker = GameManager.current
 	check(GameManager.mode == "free_play" and picker != null and "games" in picker, "free play opens the game picker")
-	check(picker.games == ["simon_says", "bubble_pop"], "picker lists the built games (got %s)" % str(picker.games))
+	check(picker.games == ["session", "simon_says", "bubble_pop"], "picker: session card + built games (got %s)" % str(picker.games))
 	var rects: Array = picker.card_rects()
-	picker.fake_hands = [{"pos": (rects[1] as Rect2).get_center(), "radius": 40.0}]
+	picker.fake_hands = [{"pos": (rects[2] as Rect2).get_center(), "radius": 40.0}]
 	await wait(0.8)
-	check(picker.dwell[1] > 0.2 and picker.dwell[0] == 0.0, "hand on a card fills its ring")
+	check(picker.dwell[2] > 0.2 and picker.dwell[1] == 0.0, "hand on a card fills its ring")
 	picker.fake_hands = [{"pos": Vector2(5, 5), "radius": 40.0}]
 	await wait(0.6)
-	check(picker.dwell[1] < 0.2, "moving away drains the ring")
-	picker.fake_hands = [{"pos": (rects[1] as Rect2).get_center(), "radius": 40.0}]
+	check(picker.dwell[2] < 0.2, "moving away drains the ring")
+	picker.fake_hands = [{"pos": (rects[2] as Rect2).get_center(), "radius": 40.0}]
 	await wait_game("bubble_pop")
 	check(GameManager.current_game_id == "bubble_pop", "full ring starts that game")
 	await press("back", 0.4)
 	picker = GameManager.current
-	check("games" in picker, "back from a game → picker")
+	check("games" in picker and picker.sel == 2, "back from a game → picker, last game highlighted")
 	await press("next", 0.1)
-	check(picker.sel == 0, "button moves the highlight (wraps)")
+	await press("next", 0.1)
+	check(picker.sel == 1, "button moves the highlight (wraps)")
 	await press("long")
 	await wait_game("simon_says")
 	check(GameManager.current_game_id == "simon_says", "long press starts the highlighted game")
 	await press("back", 0.4)
 	await press("back", 0.4)
 	check(GameManager.mode == "session" and idle_variant() == "ready", "back from the picker → idle")
+
+	# picker as the start screen: "Today's session" card starts the session, home after it
+	Centre.set_value("landing", "picker")
+	GameManager.go_home()
+	await wait(0.3)
+	picker = GameManager.current
+	check(GameManager.mode == "free_play" and "games" in picker and picker.games[0] == "session", "start screen = picker")
+	await press("back", 0.3)
+	check("games" in GameManager.current, "back on the start-screen picker stays there")
+	GameManager.current.sel = 0
+	await press("long", 1.2)
+	check(sd.st == sd.St.RUNNING and GameManager.mode == "session", "session card starts the session")
+	await press("back", 0.4)      # stop → goodbye
+	await press("next", 0.4)      # skip goodbye → "see you tomorrow"
+	check(idle_variant() == "tomorrow", "session end → see you tomorrow")
+	await press("next", 0.4)      # any press → straight back to the picker
+	check(GameManager.mode == "free_play" and "games" in GameManager.current, "→ back to the picker")
+
+	# held Space with X11/XWayland auto-repeat (release+press pairs) is ONE long press
+	var fired: Array = []
+	var rec := func(a: String) -> void: fired.append(a)
+	InputRouter.action.connect(rec)
+	InputRouter._single("down", "space")
+	for i in 12:
+		await wait(0.2)
+		InputRouter._single("up", "space")
+		await wait(0.03)
+		InputRouter._single("down", "space")
+	check(InputRouter.hold_seconds() > 2.0, "hold time keeps counting through auto-repeat")
+	InputRouter._single("up", "space")
+	await wait(0.4)
+	InputRouter.action.disconnect(rec)
+	check(fired == ["long"], "auto-repeat hold → one 'long' (got %s)" % str(fired))
+	await wait(1.5)
+	Centre.set_value("landing", "picker")
 	Centre.set_value("current_week", 3)
 	Centre.set_value("max_sessions_per_day", 2)

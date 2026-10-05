@@ -5,8 +5,10 @@ extends Node2D
 ## picks by accident.
 ##
 ## The pose model has no finger points, so there's no fist/grab gesture: dwell is the
-## select. Single button / remote: next = move the highlight, select or long = start the
-## highlighted game, back = leave free play.
+## select. Only a RAISED hand counts (wrist above its elbow): a child standing with arms
+## hanging in front of a card doesn't pick it. Single button / remote: next = move the highlight, select or long = start the
+## highlighted game, back = leave free play (stays here when the picker is the start screen).
+## The "session" card (first) starts today's fixed session.
 
 const UiKit = preload("res://core/UiKit.gd")
 const DWELL_S := 1.5
@@ -42,18 +44,32 @@ func card_rects() -> Array:
 	var n := maxi(1, games.size())
 	var gap := view.x * 0.04
 	var w := minf(view.x * 0.26, (view.x * 0.84 - gap * (n - 1)) / n)
-	var h := view.y * 0.42
+	var h := view.y * 0.36
 	var x0 := (view.x - (w * n + gap * (n - 1))) / 2.0
 	var out: Array = []
 	for i in n:
-		out.append(Rect2(x0 + i * (w + gap), view.y * 0.16, w, h))
+		out.append(Rect2(x0 + i * (w + gap), view.y * 0.18, w, h))
 	return out
 
 
 func _hands() -> Array:
 	if not fake_hands.is_empty():
 		return fake_hands
-	return GameManager.avatar.hands() if GameManager.avatar != null else []
+	var out: Array = []
+	for h in (GameManager.avatar.hands() if GameManager.avatar != null else []):
+		if _raised(h):
+			out.append(h)
+	return out
+
+
+## Wrist above its elbow (forearm up): reaching, not hanging.
+func _raised(h: Dictionary) -> bool:
+	var p := VisionClient.person_by_id(int(h["player"]))
+	var w := VisionClient.kp(p, str(h["side"]) + "_wrist")
+	var e := VisionClient.kp(p, str(h["side"]) + "_elbow")
+	if w.z < 0.3 or e.z < 0.3:
+		return false
+	return w.y < e.y + 0.01
 
 
 func _process(delta: float) -> void:
@@ -104,8 +120,6 @@ func pick(i: int) -> void:
 
 func on_action(a: String) -> void:
 	if _picked or games.is_empty():
-		if a == "back":
-			GameManager.exit_free_play()
 		return
 	match a:
 		"next":
@@ -117,7 +131,8 @@ func on_action(a: String) -> void:
 		"select", "long":
 			pick(sel)
 		"back":
-			GameManager.exit_free_play()
+			if not GameManager.landing_picker():
+				GameManager.exit_free_play()
 	queue_redraw()
 
 
@@ -150,7 +165,7 @@ func _draw() -> void:
 		if f > 0.0:
 			draw_arc(c, pr * 1.3, -PI / 2.0, -PI / 2.0 + TAU * f, 64, UiKit.GOLD, 16.0 * u, true)
 		# name: primary language big, the others smaller
-		var title: Dictionary = ContentDB.game(gid).get("title", {})
+		var title := _title(gid)
 		var langs := Settings.ordered_langs()
 		var y := r.position.y + bob.y + r.size.y * 0.76
 		for li in langs.size():
@@ -168,9 +183,25 @@ func _draw() -> void:
 		draw_arc(p, 26.0 * u, 0.0, TAU, 32, UiKit.GOLD, 4.0 * u, true)
 
 
+func _title(gid: String) -> Dictionary:
+	if gid == GameManager.SESSION_CARD:
+		var e = ContentDB.ui.get("picker_session", {})
+		return e if e is Dictionary else {}
+	return ContentDB.game(gid).get("title", {})
+
+
 ## Simple drawn picture per game; unknown games get a star.
 func _draw_icon(gid: String, c: Vector2, r: float) -> void:
 	match gid:
+		"session":   # sun: today
+			var sun := Color(1.0, 0.75, 0.2)
+			for k in 12:
+				var a := TAU * k / 12.0 + _t * 0.3
+				draw_line(c + Vector2(cos(a), sin(a)) * r * 0.62, c + Vector2(cos(a), sin(a)) * r * 0.92, sun, r * 0.1, true)
+			draw_circle(c, r * 0.48, sun)
+			draw_circle(c + Vector2(-r * 0.16, -r * 0.08), r * 0.06, UiKit.OUTLINE)
+			draw_circle(c + Vector2(r * 0.16, -r * 0.08), r * 0.06, UiKit.OUTLINE)
+			draw_arc(c + Vector2(0, r * 0.05), r * 0.22, PI * 0.15, PI * 0.85, 16, UiKit.OUTLINE, r * 0.05, true)
 		"simon_says":   # stick figure touching its head
 			var skin := Color(1.0, 0.86, 0.7)
 			var w := r * 0.12

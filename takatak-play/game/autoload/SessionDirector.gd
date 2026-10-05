@@ -17,6 +17,7 @@ const UiKit = preload("res://core/UiKit.gd")
 const IDLE_SCENE := "res://scenes/Idle.tscn"
 const RESTART_MIN_S := 45.0
 const FORCE_AFTER_S := 60.0     # game ignored request_finish this long → stop it
+const HOME_AFTER_S := {"tomorrow": 5.0, "rest": 7.0}   # picker start screen: back to it
 const TITLE_S := 2.5            # game title card before each new game
 const OVERRUN_S := 120.0        # past session_minutes by this much → straight to goodbye
 
@@ -52,14 +53,28 @@ func state_name() -> String:
 
 # ---- idle ----------------------------------------------------------------------
 
-## variant: ready (boot) | tomorrow (after a session) | rest (daily cap reached)
+## variant: ready (boot) | tomorrow (after a session) | rest (daily cap reached).
+## With the picker as start screen, "ready" is the picker and the other two return to
+## it after HOME_AFTER_S.
 func go_idle(variant := "ready") -> void:
 	st = St.IDLE
 	_gen += 1
 	segments = []
+	if variant == "ready" and GameManager.landing_picker():
+		GameManager.go_home()
+		return
 	var idle = GameManager.show_scene(IDLE_SCENE)
 	if idle != null:
 		idle.setup_idle(variant)
+	if variant != "ready" and GameManager.landing_picker():
+		_home_after(HOME_AFTER_S[variant])
+
+
+func _home_after(seconds: float) -> void:
+	var gen := _gen
+	await get_tree().create_timer(seconds).timeout
+	if gen == _gen and st == St.IDLE and not GameManager.supervisor_open():
+		GameManager.go_home()
 
 
 # ---- buttons -------------------------------------------------------------------
@@ -73,10 +88,12 @@ func on_action(action_name: String) -> void:
 		return
 	match action_name:
 		"next", "select":
-			if st == St.IDLE:
-				start()
-			else:
+			if st == St.RUNNING:
 				next_step()
+			elif GameManager.landing_picker():
+				GameManager.go_home()     # "see you tomorrow" / resting screen → picker now
+			else:
+				start()
 		"prev":
 			if st == St.RUNNING:
 				repeat()

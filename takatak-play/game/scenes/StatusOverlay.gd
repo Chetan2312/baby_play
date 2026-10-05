@@ -1,6 +1,7 @@
 extends Control
 ## Top-most overlay: friendly "getting ready…" while vision isn't connected,
-## tester-facing errors, short toasts, and the D debug line.
+## tester-facing errors, short toasts, the D debug line, and the hold ring that shows
+## how long the worker button is held (2 s = stop / OK, 5 s = supervisor menu).
 
 const UiKit = preload("res://core/UiKit.gd")
 
@@ -29,6 +30,9 @@ func _ready() -> void:
 	add_child(_toast)
 	VisionClient.connected_changed.connect(func(_c: bool) -> void: _update_ready())
 	_update_ready()
+	var ring := HoldRing.new()
+	ring.name = "HoldRing"
+	add_child(ring)
 
 
 func toast(text: String, seconds := 2.5) -> void:
@@ -83,3 +87,41 @@ func _process(delta: float) -> void:
 			str(VisionClient.info.get("camera", "?")), GameManager.Phase.keys()[GameManager.phase],
 			SessionDirector.state_name(), Centre.week(),
 			Settings.difficulty, Settings.language_mode, Settings.primary_language, VisionClient.people.size()]
+
+
+## Bottom-centre ring while the worker button is held: fills to 5 s, with a mark at 2 s.
+class HoldRing extends Control:
+	const SHOW_AFTER_S := 0.3
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		var t := InputRouter.hold_seconds()
+		if t < SHOW_AFTER_S:
+			return
+		var u := size.y / 1080.0
+		var c := Vector2(size.x / 2.0, size.y * 0.84)
+		var r := 54.0 * u
+		var long_s := InputRouter.LONG_S
+		var sup_s := InputRouter.SUPERVISOR_HOLD_S
+		draw_circle(c, r + 16.0 * u, Color(0, 0, 0, 0.55))
+		draw_arc(c, r, 0.0, TAU, 64, Color(1, 1, 1, 0.25), 12.0 * u, true)
+		var f := clampf(t / sup_s, 0.0, 1.0)
+		var col := Color(1.0, 0.8, 0.16) if t >= long_s else Color(0.6, 0.85, 1.0)
+		draw_arc(c, r, -PI / 2.0, -PI / 2.0 + TAU * f, 64, col, 12.0 * u, true)
+		var mark := -PI / 2.0 + TAU * long_s / sup_s
+		draw_line(c + Vector2(cos(mark), sin(mark)) * (r - 14.0 * u), c + Vector2(cos(mark), sin(mark)) * (r + 14.0 * u),
+			Color.WHITE, 4.0 * u, true)
+		var k := r * 0.38   # what releasing now does: ▶ next · ■ stop/OK · ☰ menu
+		if t < long_s:
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-k * 0.7, -k), c + Vector2(k, 0), c + Vector2(-k * 0.7, k)]), Color.WHITE)
+		elif t < sup_s:
+			draw_rect(Rect2(c - Vector2(k, k) * 0.85, Vector2(k, k) * 1.7), Color.WHITE)
+		else:
+			for i in 3:
+				draw_line(c + Vector2(-k, (i - 1) * k * 0.7), c + Vector2(k, (i - 1) * k * 0.7), Color.WHITE, 6.0 * u, true)

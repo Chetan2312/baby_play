@@ -211,15 +211,22 @@ When the cap is reached, start shows the mascot resting. The supervisor can lift
 for today. Each game opens with a 2.5 s title card (mr / hi / en) so everyone knows
 what's starting.
 
-### Choose a game (free play)
+### Start screen: Choose a game
 
-Supervisor menu → "Choose a game (free play)". One card per built game across the top
-half of the screen. **Hold a hand on a card**: a gold ring fills around its picture
-(1.5 s) and the game starts. Moving away drains the ring, so nobody picks by accident.
-(The pose model has no finger points, so a fist/grab gesture isn't possible; holding
-the hand still is the select.) Single button: press = next card, hold 2 s = start,
-B = back. After a game, or B during one, it returns to the picker; B on the picker
-returns to the idle screen. Planned: a "children choose" step inside the session.
+The kit starts on **"Choose a game"** (centre profile `landing: picker`, the default).
+Cards: **Today's session** (the fixed session above, daily cap applies), then one card per
+built game. **Raise a hand onto a card and hold it there**: a gold ring fills around its
+picture (1.5 s) and it starts. Only a raised hand counts (wrist above elbow), and moving
+away drains the ring, so a child standing in front of a card doesn't pick it. (The pose
+model has no finger points, so a fist/grab gesture isn't possible.) Single button:
+press = next card, hold 2 s = start. After a game (or B during one) it comes back here;
+after a session it shows "see you tomorrow" for 5 s, then comes back.
+`landing: session` (supervisor menu → Start screen) gives the fixed-session idle screen
+for the field instead. Free-play games count rounds and movement minutes, not sessions.
+Planned: a "children choose" step inside the session.
+
+While the button is held, a ring at the bottom of the screen fills: ▶ (release = next),
+■ after 2 s (release = stop / OK), ☰ at 5 s (supervisor menu).
 
 ### Worker control
 
@@ -239,7 +246,8 @@ GPIO: set `gpio_button.enabled: true` and `pin` in `vision/config.yaml` (button 
 Supervisor PIN: `supervisor_pin` in `content/centre_profile.yaml` (default `1234`:
 change it per centre). Menu: week, language mode, main language, age group, session
 length, children at a time*, AI-literacy games*, lift today's limit, usage counts, export
-usage to USB, privacy screen, system status, choose a game (free play). (*stored only; those features
+usage to USB, privacy screen, system status, choose a game (free play). First item:
+Start screen (Choose a game / fixed session). (*stored only; those features
 are not built yet.)
 
 ### Weeks and centre profile (D4)

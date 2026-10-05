@@ -15,6 +15,7 @@ const FG := Color(1, 1, 1)
 const DIM := Color(0.72, 0.75, 0.85)
 const HI := Color(1.0, 0.82, 0.2)
 const ITEMS := [
+	{"id": "landing", "key": "item_landing", "kind": "cycle", "values": ["picker", "session"]},
 	{"id": "week", "key": "item_week", "kind": "cycle"},
 	{"id": "language_mode", "key": "item_language_mode", "kind": "cycle", "values": ["mr_first", "all_three", "single"]},
 	{"id": "primary_language", "key": "item_primary_language", "kind": "cycle", "values": ["mr", "hi", "en"]},
@@ -227,7 +228,7 @@ func _value_text(item: Dictionary) -> String:
 			var w := ContentDB.week(Centre.week())
 			var t: Dictionary = w.get("title", {})
 			return "%d · %s / %s" % [Centre.week(), str(t.get("mr", "")), str(t.get("en", ""))]
-		"language_mode", "difficulty":
+		"language_mode", "difficulty", "landing":
 			return UiKit.ui_both("val_" + str(Centre.value(id)))
 		"primary_language":
 			return UiKit.ui_both("lang_" + str(Centre.value(id)))

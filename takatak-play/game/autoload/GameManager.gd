@@ -4,7 +4,8 @@ extends Node
 ##              games it asks for (run_game), routes vision signals, pauses when the
 ##              children leave, and reports game_done.
 ##   free_play  "Choose a game": children pick a game by holding a hand on its card
-##              (GamePicker), from the supervisor menu (or --free-play in dev).
+##              (GamePicker). The first card, "Today's session", starts the session.
+## Start screen (centre profile "landing"): picker (default) or session (idle screen).
 ##
 ## Dev-build keys: X skip round · L language mode · K primary language · T toddler/kid ·
 ## C camera · S skeleton · D debug · F2 Devanagari test · Ctrl+Q quit.
@@ -21,6 +22,7 @@ const GAME_SCENES := {
 	"bubble_pop": "res://games/bubble_pop/BubblePop.tscn",
 }
 const PICKER_SCENE := "res://scenes/GamePicker.tscn"
+const SESSION_CARD := "session"   # picker card that starts the fixed session
 const DEVA_SCENE := "res://scenes/DevaTest.tscn"
 
 var phase := Phase.BOOT
@@ -76,7 +78,20 @@ func boot() -> void:
 	elif Settings.free_play:
 		enter_free_play()
 	else:
+		go_home()
+
+
+## The start screen: the game picker, or the session's idle screen (centre profile "landing").
+func go_home() -> void:
+	if landing_picker():
+		enter_free_play()
+	else:
+		mode = "session"
 		SessionDirector.go_idle()
+
+
+func landing_picker() -> bool:
+	return str(Centre.value("landing")) == "picker"
 
 
 func now_s() -> float:
@@ -192,17 +207,16 @@ func _on_game_finished(result: Dictionary) -> void:
 
 # ---- free play: "Choose a game" picker (supervisor menu) ---------------------------
 
+## Free-play games count rounds and movement minutes, not sessions (no daily cap).
 func enter_free_play() -> void:
 	mode = "free_play"
-	Stats.start_session()
 	show_picker()
 
 
 func exit_free_play() -> void:
 	stop_game()
-	Stats.end_session()
 	mode = "session"
-	SessionDirector.go_idle()
+	go_home()
 
 
 func show_picker() -> void:
@@ -210,7 +224,7 @@ func show_picker() -> void:
 		return
 	var picker = show_scene(PICKER_SCENE)
 	if picker != null:
-		picker.setup_picker(game_ids(), _last_picked)
+		picker.setup_picker([SESSION_CARD] + game_ids(), _last_picked)
 
 
 ## Built games, in GAME_SCENES order.
@@ -225,6 +239,10 @@ func game_ids() -> Array:
 ## Picker → start a game with this week's pack (the game falls back to its default pack).
 func pick_game(game_id: String) -> void:
 	_last_picked = game_id
+	if game_id == SESSION_CARD:
+		mode = "session"
+		SessionDirector.start()
+		return
 	var packs: Array = ContentDB.week(Centre.week()).get("packs", [])
 	if not run_game(game_id, {"pack": str(packs[0]) if not packs.is_empty() else ""}):
 		overlay.toast("Game not available: " + game_id)
@@ -255,8 +273,9 @@ func free_play_action(action_name: String) -> void:
 func open_supervisor() -> void:
 	if _supervisor != null and is_instance_valid(_supervisor):
 		return
-	if mode == "free_play":
-		exit_free_play()
+	if mode == "free_play":   # closing the menu goes home again
+		stop_game()
+		mode = "session"
 	AudioDirector.stop_voice()
 	_supervisor = SupervisorScript.new()
 	supervisor_layer.add_child(_supervisor)
@@ -272,7 +291,7 @@ func _on_supervisor_closed(next: String) -> void:
 	if next == "free_play":
 		enter_free_play()
 	else:
-		SessionDirector.go_idle()
+		go_home()
 
 
 func supervisor_open() -> bool:
@@ -413,7 +432,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_F2:
 			if phase == Phase.DEVA:
 				phase = _phase_before_deva
-				SessionDirector.go_idle()
+				go_home()
 			else:
 				show_deva_test()
 

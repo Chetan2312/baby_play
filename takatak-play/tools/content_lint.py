@@ -33,6 +33,7 @@ STEP_TYPES = ("game", "mascot_line")
 LANGUAGE_MODES = ("mr_first", "all_three", "single")
 DIFFICULTIES = ("toddler", "kid")
 SPONSORS = ("none", "cummins_foundation")
+LANDINGS = ("picker", "session")
 UI_LANGS = ("mr", "en")
 
 
@@ -118,6 +119,8 @@ def lint_centre(c, weeks, sessions):
         bad("primary_language", f"must be one of {LANGS}")
     if c.get("difficulty") not in DIFFICULTIES:
         bad("difficulty", f"must be one of {DIFFICULTIES}")
+    if c.get("landing") not in LANDINGS:
+        bad("landing", f"must be one of {LANDINGS}")
     if c.get("session") not in sessions:
         bad("session", "is not a session in content/sessions/")
     if not isinstance(c.get("session_minutes"), (int, float)) or not 12 <= c["session_minutes"] <= 20:

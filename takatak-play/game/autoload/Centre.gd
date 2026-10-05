@@ -9,6 +9,7 @@ const DEFAULTS := {
 	"language_mode": "mr_first",
 	"primary_language": "mr",
 	"difficulty": "toddler",
+	"landing": "picker",
 	"session": "standard_v1",
 	"session_minutes": 18,
 	"slots": 3,
