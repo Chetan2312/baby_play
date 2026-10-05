@@ -3,7 +3,8 @@ extends Node
 ## (SessionDirector by default; the supervisor menu while it is open). Games never
 ## read raw keys.
 ##
-##   action      USB presenter remote (= keyboard)   GPIO button (vision "button")
+##   action      USB presenter remote (= keyboard)   single button: GPIO, Space, screen tap
+##                                                   or mouse click (all builds)
 ##   next        Page Down                           short press (< 2 s)
 ##   prev        Page Up
 ##   select      F5 / Shift+F5 / Enter
@@ -13,7 +14,8 @@ extends Node
 ##
 ## Session meaning: next/select = start / next step · prev = repeat the prompt ·
 ## back/long = stop. Menus: next/prev = move · select/long = OK · back = back.
-## Dev builds also map Space/→ to next and ← to prev.
+## A touch arrives as an emulated left mouse button (Godot's default), so touch and
+## mouse share one path. Dev builds also map → to next and ← to prev.
 
 signal action(action_name: String)
 
@@ -25,8 +27,9 @@ const TAP_WINDOW_S := 4.0
 var _handlers: Array = []
 var _back_down := -1.0
 var _back_sup := false
-var _gpio_down := -1.0
-var _gpio_sup := false
+var _single_down := -1.0       # GPIO / Space / tap / click: one shared button
+var _single_sup := false
+var _single_src := ""
 var _taps: Array = []
 
 
@@ -58,6 +61,12 @@ func fire(action_name: String) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	var mb := event as InputEventMouseButton
+	if mb != null:
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_single("down" if mb.pressed else "up", "pointer")
+			get_viewport().set_input_as_handled()
+		return
 	var k := event as InputEventKey
 	if k == null or k.echo:
 		return
@@ -74,7 +83,9 @@ func _input(event: InputEvent) -> void:
 				fire("select")
 		KEY_B, KEY_PERIOD, KEY_ESCAPE:
 			_back_key(k.pressed)
-		KEY_SPACE, KEY_RIGHT:
+		KEY_SPACE:
+			_single("down" if k.pressed else "up", "space")
+		KEY_RIGHT:
 			if Settings.is_dev() and k.pressed:
 				fire("next")
 			handled = Settings.is_dev()
@@ -110,13 +121,21 @@ func _back_key(pressed: bool) -> void:
 
 
 func _on_gpio(state: String) -> void:
+	_single(state, "gpio")
+
+
+## Single-button press: short = next, 2–5 s = long, 5 s held = supervisor.
+## One press at a time: an "up" from a different source than the "down" is ignored.
+func _single(state: String, src: String) -> void:
 	if state == "down":
-		_gpio_down = _now()
-		_gpio_sup = false
-	elif state == "up" and _gpio_down >= 0.0:
-		var held := _now() - _gpio_down
-		_gpio_down = -1.0
-		if _gpio_sup:
+		if _single_down < 0.0:
+			_single_down = _now()
+			_single_sup = false
+			_single_src = src
+	elif state == "up" and _single_down >= 0.0 and src == _single_src:
+		var held := _now() - _single_down
+		_single_down = -1.0
+		if _single_sup:
 			return
 		fire("next" if held < LONG_S else "long")
 
@@ -126,6 +145,6 @@ func _process(_delta: float) -> void:
 	if _back_down >= 0.0 and not _back_sup and now - _back_down >= SUPERVISOR_HOLD_S:
 		_back_sup = true
 		fire("supervisor")
-	if _gpio_down >= 0.0 and not _gpio_sup and now - _gpio_down >= SUPERVISOR_HOLD_S:
-		_gpio_sup = true
+	if _single_down >= 0.0 and not _single_sup and now - _single_down >= SUPERVISOR_HOLD_S:
+		_single_sup = true
 		fire("supervisor")

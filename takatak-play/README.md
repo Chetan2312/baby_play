@@ -113,7 +113,7 @@ For development: `TAKATAK_BUILD=dev ./run.sh play`. `mock`, `play-mock`, `debug`
 
 **Dev keys** (dev builds only): `X` skip round · `L` language mode · `K` primary
 language · `T` toddler/kid · `C` camera wide↔noir · `S` skeleton · `D` debug line ·
-`F2` Devanagari test · `Ctrl+Q` quit. Space/→ also act as "next" and ← as "repeat".
+`F2` Devanagari test · `Ctrl+Q` quit. → also acts as "next" and ← as "repeat".
 
 **Game args** go after `./run.sh game`: `--windowed`, `--screen=N`,
 `--lang=mr|hi|en`, `--language-mode=all|all_three|single|rotate`,
@@ -192,7 +192,10 @@ for today. The old attract/playlist flow is reachable only from the supervisor m
 
 ### Worker control
 
-| Action | Presenter remote | GPIO button | In a session | In menus |
+One button is enough. The **single button** can be the Space bar, a screen tap, a mouse
+click, or the GPIO button when one is fitted. All four behave the same.
+
+| Action | Presenter remote | Single button (Space / tap / click / GPIO) | In a session | In menus |
 |---|---|---|---|---|
 | next | Page Down | short press | start / next step | move down (PIN: digit +1) |
 | prev | Page Up | | repeat the prompt | move up (PIN: digit −1) |

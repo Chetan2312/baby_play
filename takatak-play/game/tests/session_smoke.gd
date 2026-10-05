@@ -37,6 +37,28 @@ func press(a: String, s := 0.25) -> void:
 	await wait(s)
 
 
+## Short press of the single button through the real input path.
+func tap_key(code: Key) -> void:
+	for pressed in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = code
+		e.pressed = pressed
+		Input.parse_input_event(e)
+		await wait(0.05)
+	await wait(0.2)
+
+
+func tap_pointer() -> void:
+	for pressed in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = MOUSE_BUTTON_LEFT
+		e.pressed = pressed
+		e.position = Vector2(400, 300)
+		Input.parse_input_event(e)
+		await wait(0.05)
+	await wait(0.2)
+
+
 func step_id() -> String:
 	return str(SessionDirector.step.get("id", ""))
 
@@ -55,8 +77,8 @@ func _run() -> void:
 
 	# session 1: start → greet (runs out by itself) → warm-up (Simon Says) → time up → theme
 	# (bridge line skipped) → stop → goodbye → idle
-	await press("next")
-	check(sd.st == sd.St.RUNNING and step_id() == "greet", "start → greet (got %s)" % step_id())
+	await tap_key(KEY_SPACE)
+	check(sd.st == sd.St.RUNNING and step_id() == "greet", "Space → start → greet (got %s)" % step_id())
 	for i in 40:
 		if step_id() != "greet":
 			break
@@ -78,8 +100,9 @@ func _run() -> void:
 	check(sd.st == sd.St.IDLE and idle_variant() == "tomorrow", "session ends → idle 'see you tomorrow'")
 	check(Stats.sessions_today() == base_sessions + 1, "session counted")
 
-	# session 2, then the daily cap
-	await press("next")
+	# session 2 (started with a screen tap / click), then the daily cap
+	await tap_pointer()
+	check(sd.st == sd.St.RUNNING, "tap/click → start")
 	await press("back", 0.4)
 	await press("next", 0.4)
 	check(Stats.sessions_today() == base_sessions + 2, "second session counted")
