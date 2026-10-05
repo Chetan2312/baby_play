@@ -69,3 +69,9 @@ back_hint:            {mr: "B = मागे", en: "B = back", reviewed: false}
 clock_unknown:        {mr: "तारीख माहीत नाही", en: "date unknown", reviewed: false}
 net_offline:          {mr: "ऑफलाइन", en: "Offline", reviewed: false}
 net_online:           {mr: "ऑनलाइन", en: "Online", reviewed: false}
+
+level_title:          {mr: "किती अवघड?", en: "How hard?", reviewed: false}
+level_easy:           {mr: "सोपे", hi: "आसान", en: "Easy", reviewed: false}
+level_medium:         {mr: "मध्यम", hi: "मध्यम", en: "Medium", reviewed: false}
+level_hard:           {mr: "कठीण", hi: "कठिन", en: "Hard", reviewed: false}
+score_title:          {mr: "गुण", en: "Score", reviewed: false}

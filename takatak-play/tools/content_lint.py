@@ -201,10 +201,33 @@ def lint(strict_audio=False, release=False):
                         errors.append(f"{tag}: unknown {k} {it.get(k)!r}")
                 if it.get("image") and not os.path.exists(os.path.join(CONTENT, it["image"])):
                     errors.append(f"{tag}: image missing {it['image']}")
+        for entry in g.get("picker") or []:
+            if entry.get("pack") not in (g.get("packs") or {}):
+                errors.append(f"game {gid}: picker pack {entry.get('pack')!r} is not one of its packs")
+            for lang in LANGS:
+                if not (entry.get("title") or {}).get(lang):
+                    errors.append(f"game {gid}: picker {entry.get('pack')!r} title missing {lang}")
+        levels = g.get("levels") or {}
+        if levels and isinstance(next(iter(levels.values())), dict):
+            for lv, cfg in levels.items():
+                if lv not in ("easy", "medium", "hard"):
+                    errors.append(f"game {gid}: unknown level {lv!r} (easy | medium | hard)")
+                if cfg.get("distractors", "all") not in ("all", "other_packs", "same_pack"):
+                    errors.append(f"game {gid} level {lv}: distractors must be all | other_packs | same_pack")
+            for dif, lv in (g.get("session_level") or {}).items():
+                if lv not in levels:
+                    errors.append(f"game {gid}: session_level {dif} → unknown level {lv!r}")
+        for k in ("bee_intro_line", "bee_oops_line"):
+            if g.get(k) and g[k] not in lines:
+                errors.append(f"game {gid}: unknown {k} {g[k]!r}")
+        if g.get("bee") and g["bee"].get("word") not in lines:
+            errors.append(f"game {gid}: bee word {g['bee'].get('word')!r} unknown")
         if g.get("default_pack") and g["default_pack"] not in (g.get("packs") or {}):
             errors.append(f"game {gid}: default_pack {g['default_pack']!r} is not one of its packs")
         ids = {p["id"] for p in g.get("prompts", [])}
         for level, pool in (g.get("levels") or {}).items():
+            if not isinstance(pool, list):   # Bubble Pop-style levels are settings, not prompt lists
+                continue
             for pid in pool:
                 if pid not in ids:
                     errors.append(f"game {gid}: level {level} lists unknown prompt {pid!r}")

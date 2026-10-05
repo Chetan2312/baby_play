@@ -4,7 +4,9 @@ extends Node2D
 const UiKit = preload("res://core/UiKit.gd")
 const COLORS := [Color(1.0, 0.8, 0.16), Color(1.0, 0.43, 0.7), Color(0.35, 0.78, 1.0),
 	Color(0.47, 0.9, 0.47), Color(1.0, 0.6, 0.24), Color(1, 1, 1)]
-const MAX_PARTICLES := 900
+const MAX_PARTICLES := 450   # Pi 5: every particle is a draw call; keep bursts lively but bounded
+## unit star built once; each particle draws it through a transform (no per-frame arrays)
+var _star := UiKit.star_points(Vector2.ZERO, 1.0)
 
 var _parts: Array = []        # [pos, vel, life, size, color, rot, spin]
 var _word_box: Control = null
@@ -79,15 +81,17 @@ func _process(delta: float) -> void:
 	if _parts.is_empty():
 		return
 	var g := 900.0 * get_viewport_rect().size.y / 1080.0
-	var alive: Array = []
-	for p in _parts:
+	var n := 0
+	for p in _parts:          # update + compact in place
+		p[2] -= delta
+		if p[2] <= 0.0:
+			continue
 		p[0] += p[1] * delta
 		p[1].y += g * delta
-		p[2] -= delta
 		p[5] += p[6] * delta
-		if p[2] > 0.0:
-			alive.append(p)
-	_parts = alive
+		_parts[n] = p
+		n += 1
+	_parts.resize(n)
 	queue_redraw()
 
 
@@ -95,4 +99,6 @@ func _draw() -> void:
 	for p in _parts:
 		var r: float = float(p[3]) * minf(1.0, float(p[2]) * 2.0)
 		if r > 2.0:
-			draw_colored_polygon(UiKit.star_points(p[0], r, float(p[5])), p[4])
+			draw_set_transform(p[0], float(p[5]), Vector2(r, r))
+			draw_colored_polygon(_star, p[4])
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

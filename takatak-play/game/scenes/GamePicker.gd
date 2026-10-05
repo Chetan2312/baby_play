@@ -8,37 +8,58 @@ extends Node2D
 ## select. Only a RAISED hand counts (wrist above its elbow): a child standing with arms
 ## hanging in front of a card doesn't pick it. Single button / remote: next = move the highlight, select or long = start the
 ## highlighted game, back = leave free play (stays here when the picker is the start screen).
-## The "session" card (first) starts today's fixed session.
+## The "session" card (first) starts today's fixed session. A game with levels (Bubble Pop)
+## opens a second page: Easy / Medium / Hard (back = return to the games).
 
 const UiKit = preload("res://core/UiKit.gd")
 const DWELL_S := 1.5
 const DRAIN := 2.0              # the ring empties this many times faster than it fills
 const CALL_EVERY_S := 20.0      # mascot repeats "hold your hand on a picture"
+const PAGE_COOLDOWN_S := 1.2    # after switching page, hands must settle before a new dwell
 
 var games: Array = []
 var sel := 0                    # highlighted card (button control)
 var dwell: Array = []           # 0..1 per card
 var fake_hands: Array = []      # tests: [{pos: Vector2}] used instead of the camera
 var _picked := false
+var page := "games"             # games | levels
+var _game_cards: Array = []
+var _game_sel := 0
+var _chosen := ""               # card whose level is being chosen
+var _last_level := ""
+var _cooldown := 0.0
+var _title_label: Label = null
 var _t := 0.0
 var _last_call := -100.0
 
 
-## last: the game played last time, highlighted first
-func setup_picker(ids: Array, last := "") -> void:
-	games = ids
-	sel = maxi(0, games.find(last))
-	dwell = []
-	for i in games.size():
-		dwell.append(0.0)
+## last: the card played last time, highlighted first · last_level: on the level page
+func setup_picker(ids: Array, last := "", last_level := "") -> void:
+	_game_cards = ids
+	_last_level = last_level
+	_show_page("games", ids, maxi(0, ids.find(last)))
 	var ui: Control = GameManager.game_ui
-	UiKit.top_center(ui, UiKit.card([[UiKit.ui_both("picker_title"), 52, UiKit.GOLD]], 0.45))
+	var title := UiKit.card([[UiKit.ui_both("picker_title"), 52, UiKit.GOLD]], 0.45)
+	_title_label = title.get_child(0).get_child(0)
+	UiKit.top_center(ui, title)
 	UiKit.bottom_center(ui, UiKit.card([[UiKit.ui_both("picker_help"), 28, Color(0.9, 0.9, 0.95)]], 0.4))
 	GameManager.mascot.go_home()
 	GameManager.mascot.play("point", 2.5)
 
 
 ## Card rectangles in screen pixels: a row across the top half, centred.
+func _show_page(p: String, cards: Array, select: int) -> void:
+	page = p
+	games = cards
+	sel = clampi(select, 0, maxi(0, cards.size() - 1))
+	dwell = []
+	for i in games.size():
+		dwell.append(0.0)
+	_cooldown = PAGE_COOLDOWN_S
+	if _title_label != null:
+		_title_label.text = UiKit.ui_both("level_title" if p == "levels" else "picker_title")
+
+
 func card_rects() -> Array:
 	var view := get_viewport_rect().size
 	var n := maxi(1, games.size())
@@ -74,6 +95,7 @@ func _raised(h: Dictionary) -> bool:
 
 func _process(delta: float) -> void:
 	_t += delta
+	_cooldown = maxf(0.0, _cooldown - delta)
 	if games.is_empty() or _picked:
 		queue_redraw()
 		return
@@ -81,7 +103,7 @@ func _process(delta: float) -> void:
 		_last_call = _t
 		AudioDirector.say("picker_choose", Settings.prompt_langs(0))
 	var rects := card_rects()
-	var hands := _hands()
+	var hands: Array = _hands() if _cooldown <= 0.0 else []
 	for i in games.size():
 		var hovered := false
 		var r: Rect2 = rects[i]
@@ -104,6 +126,17 @@ func _process(delta: float) -> void:
 func pick(i: int) -> void:
 	if _picked or i < 0 or i >= games.size():
 		return
+	var card := str(games[i])
+	if page == "games":
+		_game_sel = i
+		var levels := GameManager.card_levels(card)
+		if not levels.is_empty():     # → Easy / Medium / Hard
+			_chosen = card
+			AudioDirector.sfx("whoosh")
+			var cards: Array = levels.map(func(l): return "level:" + str(l))
+			_show_page("levels", cards, maxi(0, levels.find(_last_level)))
+			queue_redraw()
+			return
 	_picked = true
 	sel = i
 	dwell[i] = 1.0
@@ -115,7 +148,10 @@ func pick(i: int) -> void:
 	queue_redraw()
 	await get_tree().create_timer(0.9).timeout
 	if is_inside_tree():
-		GameManager.pick_game(str(games[i]))
+		if page == "levels":
+			GameManager.pick_game(_chosen, card.get_slice(":", 1))
+		else:
+			GameManager.pick_game(card)
 
 
 func on_action(a: String) -> void:
@@ -131,7 +167,9 @@ func on_action(a: String) -> void:
 		"select", "long":
 			pick(sel)
 		"back":
-			if not GameManager.landing_picker():
+			if page == "levels":
+				_show_page("games", _game_cards, _game_sel)
+			elif not GameManager.landing_picker():
 				GameManager.exit_free_play()
 	queue_redraw()
 
@@ -183,16 +221,40 @@ func _draw() -> void:
 		draw_arc(p, 26.0 * u, 0.0, TAU, 32, UiKit.GOLD, 4.0 * u, true)
 
 
-func _title(gid: String) -> Dictionary:
-	if gid == GameManager.SESSION_CARD:
-		var e = ContentDB.ui.get("picker_session", {})
-		return e if e is Dictionary else {}
-	return ContentDB.game(gid).get("title", {})
+func _title(card: String) -> Dictionary:
+	var e = null
+	if card == GameManager.SESSION_CARD:
+		e = ContentDB.ui.get("picker_session", {})
+	elif card.begins_with("level:"):
+		e = ContentDB.ui.get("level_" + card.get_slice(":", 1), {})
+	elif card.contains("@"):
+		for entry in ContentDB.game(card.get_slice("@", 0)).get("picker", []):
+			if str(entry.get("pack", "")) == card.get_slice("@", 1):
+				e = entry.get("title", {})
+	else:
+		e = ContentDB.game(card).get("title", {})
+	return e if e is Dictionary else {}
 
 
 ## Simple drawn picture per game; unknown games get a star.
-func _draw_icon(gid: String, c: Vector2, r: float) -> void:
-	match gid:
+func _draw_icon(card: String, c: Vector2, r: float) -> void:
+	if card.begins_with("level:"):   # 1 / 2 / 3 stars
+		var n: int = {"easy": 1, "medium": 2, "hard": 3}.get(card.get_slice(":", 1), 1)
+		for k in n:
+			var p := c + Vector2((k - (n - 1) / 2.0) * r * 0.62, sin(_t * 3.0 + k) * r * 0.06)
+			draw_colored_polygon(UiKit.star_points(p, r * 0.34), UiKit.GOLD)
+		return
+	if card == "bubble_pop@numbers_1_5":   # number bubbles
+		var font := UiKit.font()
+		for b in [[Vector2(-0.38, 0.2), 0.42, "१", Color(1.0, 0.55, 0.3)], [Vector2(0.42, 0.28), 0.34, "२", Color(0.35, 0.75, 1.0)],
+				[Vector2(0.05, -0.45), 0.36, "३", Color(0.5, 0.9, 0.45)]]:
+			var bc: Vector2 = c + (b[0] as Vector2) * r
+			var br: float = float(b[1]) * r
+			draw_circle(bc, br, Color(b[3], 0.35))
+			draw_arc(bc, br, 0.0, TAU, 32, Color(1, 1, 1, 0.85), maxf(2.0, br * 0.08), true)
+			draw_string(font, bc + Vector2(-br, br * 0.3), str(b[2]), HORIZONTAL_ALIGNMENT_CENTER, br * 2.0, int(br * 1.1))
+		return
+	match card.get_slice("@", 0):
 		"session":   # sun: today
 			var sun := Color(1.0, 0.75, 0.2)
 			for k in 12:

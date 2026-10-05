@@ -48,6 +48,7 @@ var _pause_card: Control = null
 var _phase_before_deva := Phase.IDLE
 var _supervisor: Control = null
 var _last_picked := ""
+var _last_level := ""
 
 
 func attach(main_node: Node, parts: Dictionary) -> void:
@@ -224,28 +225,49 @@ func show_picker() -> void:
 		return
 	var picker = show_scene(PICKER_SCENE)
 	if picker != null:
-		picker.setup_picker([SESSION_CARD] + game_ids(), _last_picked)
+		picker.setup_picker([SESSION_CARD] + game_ids(), _last_picked, _last_level)
 
 
-## Built games, in GAME_SCENES order.
+## Picker cards for the built games, in GAME_SCENES order. A game with a "picker" list
+## in its content gets one card per entry: "<game>@<pack>" (Fruit bubbles, Number bubbles).
 func game_ids() -> Array:
 	var out: Array = []
 	for gid in GAME_SCENES:
-		if has_game(gid):
+		if not has_game(gid):
+			continue
+		var entries: Array = ContentDB.game(gid).get("picker", [])
+		if entries.is_empty():
 			out.append(gid)
+		for e in entries:
+			out.append("%s@%s" % [gid, str(e.get("pack", ""))])
 	return out
 
 
-## Picker → start a game with this week's pack (the game falls back to its default pack).
-func pick_game(game_id: String) -> void:
-	_last_picked = game_id
-	if game_id == SESSION_CARD:
+## Levels a picker card offers (easy / medium / hard), [] = start straight away.
+func card_levels(card: String) -> Array:
+	var levels = ContentDB.game(card.get_slice("@", 0)).get("levels", {})
+	if levels is Dictionary and not levels.is_empty() and levels.values()[0] is Dictionary:
+		return levels.keys()
+	return []
+
+
+## Picker → start a game. "<game>@<pack>" picks the pack, otherwise this week's pack
+## (the game falls back to its default pack). level: from the picker's level page.
+func pick_game(card: String, level := "") -> void:
+	_last_picked = card
+	if level != "":
+		_last_level = level
+	if card == SESSION_CARD:
 		mode = "session"
 		SessionDirector.start()
 		return
-	var packs: Array = ContentDB.week(Centre.week()).get("packs", [])
-	if not run_game(game_id, {"pack": str(packs[0]) if not packs.is_empty() else ""}):
-		overlay.toast("Game not available: " + game_id)
+	var gid := card.get_slice("@", 0)
+	var pack := card.get_slice("@", 1) if card.contains("@") else ""
+	if pack == "":
+		var packs: Array = ContentDB.week(Centre.week()).get("packs", [])
+		pack = str(packs[0]) if not packs.is_empty() else ""
+	if not run_game(gid, {"pack": pack, "level": level}):
+		overlay.toast("Game not available: " + gid)
 		show_picker()
 
 

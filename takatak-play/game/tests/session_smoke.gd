@@ -7,6 +7,7 @@ extends Node
 
 var fails: Array = []
 var _profile_existed := false
+var _completed := false       # a script error aborts _run silently: then this stays false
 
 
 func _ready() -> void:
@@ -14,6 +15,8 @@ func _ready() -> void:
 	Centre.set_value("landing", "session")   # the fixed-session start screen first; picker later
 	add_child(load("res://scenes/Main.tscn").instantiate())
 	await _run()
+	if not _completed:
+		fails.append("the test stopped early (script error above)")
 	if not _profile_existed:
 		DirAccess.remove_absolute(Centre.USER_PATH)
 	if fails.is_empty():
@@ -183,7 +186,7 @@ func _run() -> void:
 			break
 		await wait(0.2)
 	check(not bp.bubbles.is_empty(), "bubbles rise")
-	check(bp._textures.size() == 4, "fruit photos loaded (%d)" % bp._textures.size())
+	check(bp._photos.size() == 4, "fruit photos loaded (%d)" % bp._photos.size())
 	var wanted := int(bp.d("pops_to_win", 2))
 	for i in wanted:
 		bp.bubbles.append({"x0": 0.5, "x": 0.5, "y": 0.5, "r": 0.08, "item": bp.target, "phase": 0.0, "speed": 0.0})
@@ -203,23 +206,52 @@ func _run() -> void:
 	await press("select", 0.3)   # item 13: choose a game (free play)
 	var picker = GameManager.current
 	check(GameManager.mode == "free_play" and picker != null and "games" in picker, "free play opens the game picker")
-	check(picker.games == ["session", "simon_says", "bubble_pop"], "picker: session card + built games (got %s)" % str(picker.games))
+	check(picker.games == ["session", "simon_says", "bubble_pop@local_fruits", "bubble_pop@numbers_1_5"],
+		"picker: session card + games, one card per bubble pack (got %s)" % str(picker.games))
 	var rects: Array = picker.card_rects()
-	picker.fake_hands = [{"pos": (rects[2] as Rect2).get_center(), "radius": 40.0}]
+	await wait(1.3)    # page cooldown
+	picker.fake_hands = [{"pos": (rects[3] as Rect2).get_center(), "radius": 40.0}]
 	await wait(0.8)
-	check(picker.dwell[2] > 0.2 and picker.dwell[1] == 0.0, "hand on a card fills its ring")
+	check(picker.dwell[3] > 0.2 and picker.dwell[1] == 0.0, "hand on a card fills its ring")
 	picker.fake_hands = [{"pos": Vector2(5, 5), "radius": 40.0}]
 	await wait(0.6)
-	check(picker.dwell[2] < 0.2, "moving away drains the ring")
-	picker.fake_hands = [{"pos": (rects[2] as Rect2).get_center(), "radius": 40.0}]
+	check(picker.dwell[3] < 0.2, "moving away drains the ring")
+	picker.fake_hands = [{"pos": (rects[3] as Rect2).get_center(), "radius": 40.0}]
+	await wait(1.8)
+	check(picker.page == "levels" and picker.games == ["level:easy", "level:medium", "level:hard"],
+		"Number bubbles → Easy / Medium / Hard (got %s)" % str(picker.games))
+	check(picker.dwell.max() == 0.0, "same hand doesn't pick a level right away (cooldown)")
+	picker.fake_hands = []
+	await press("back", 0.2)
+	check(picker.page == "games" and picker.sel == 3, "back on the level page → games")
+	await press("long", 0.3)      # Number bubbles again → levels
+	await press("next", 0.1)      # → medium
+	await press("long")
 	await wait_game("bubble_pop")
-	check(GameManager.current_game_id == "bubble_pop", "full ring starts that game")
+	var nb = GameManager.current_game
+	check(nb != null and nb.pack == "numbers_1_5" and nb.level == "medium", "number bubbles, medium")
+	check(nb.bees_on(), "medium has bees")
+	for i in 40:
+		if not nb.target.is_empty():
+			break
+		await wait(0.2)
+	var decoy = nb._decoy_pool().filter(func(x): return x["id"] != nb.target["id"])[0]
+	nb.bubbles.append({"x0": 0.5, "x": 0.5, "y": 0.5, "r": 0.08, "item": decoy, "phase": 0.0, "speed": 0.0})
+	nb.pop_bubble(nb.bubbles[-1])
+	nb.bubbles.append({"x0": 0.5, "x": 0.5, "y": 0.5, "r": 0.08, "item": nb.bee, "phase": 0.0, "speed": 0.0})
+	nb.pop_bubble(nb.bubbles[-1])
+	nb.bubbles.append({"x0": 0.5, "x": 0.5, "y": 0.5, "r": 0.08, "item": nb.target, "phase": 0.0, "speed": 0.0})
+	nb.pop_bubble(nb.bubbles[-1])
+	check(nb.correct == 1 and nb.wrong == 2 and nb.score == -1,
+		"score: −1 decoy, −1 bee, +1 right → −1 (got %d)" % nb.score)
+	check(nb._flash > 0.5, "wrong pop flashes red")
+	var pool_ids: Array = nb._decoy_pool().map(func(x): return x["id"])
+	check(pool_ids.has("mango") and pool_ids.has("two" if nb.target["id"] != "two" else "one"),
+		"number decoys mix other numbers and fruits")
 	await press("back", 0.4)
 	picker = GameManager.current
-	check("games" in picker and picker.sel == 2, "back from a game → picker, last game highlighted")
-	await press("next", 0.1)
-	await press("next", 0.1)
-	check(picker.sel == 1, "button moves the highlight (wraps)")
+	check("games" in picker and picker.sel == 3, "back from a game → picker, last card highlighted")
+	picker.sel = 1
 	await press("long")
 	await wait_game("simon_says")
 	check(GameManager.current_game_id == "simon_says", "long press starts the highlighted game")
@@ -263,3 +295,4 @@ func _run() -> void:
 	Centre.set_value("landing", "picker")
 	Centre.set_value("current_week", 3)
 	Centre.set_value("max_sessions_per_day", 2)
+	_completed = true

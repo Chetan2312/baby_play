@@ -254,3 +254,15 @@ word_five,word,1,en,Five,clear,false,false
 picker_choose,transition,1,mr,कोणता खेळ खेळायचा? हात चित्रावर धरून ठेव!,inviting,false,false
 picker_choose,transition,1,hi,कौन सा खेल खेलें? हाथ तस्वीर पर रखो!,inviting,false,false
 picker_choose,transition,1,en,Which game shall we play? Hold your hand on a picture!,inviting,false,false
+word_bee,word,1,mr,मधमाशी,clear,false,false
+word_bee,word,1,hi,मधुमक्खी,clear,false,false
+word_bee,word,1,en,Bee,clear,false,false
+bubble_bee_intro,transition,1,mr,मधमाशीचा फुगा फोडू नका!,playful,false,false
+bubble_bee_intro,transition,1,hi,मधुमक्खी वाला बुलबुला मत फोड़ना!,playful,false,false
+bubble_bee_intro,transition,1,en,Don't pop the bee bubbles!,playful,false,false
+bubble_bee_oops,encourage,1,mr,"अरेरे, मधमाशी! तिला उडू द्या.",gentle,false,false
+bubble_bee_oops,encourage,1,hi,"अरे, मधुमक्खी! उसे उड़ने दो.",gentle,false,false
+bubble_bee_oops,encourage,1,en,"Oops, a bee! Let it fly away.",gentle,false,false
+bubble_well_done,praise,1,mr,छान! सगळे फुगे संपले!,excited,false,false
+bubble_well_done,praise,1,hi,बहुत बढ़िया! सारे बुलबुले खत्म!,excited,false,false
+bubble_well_done,praise,1,en,Well done! All the bubbles are done!,excited,false,false

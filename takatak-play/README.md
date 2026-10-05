@@ -168,21 +168,35 @@ Language modes (centre profile `language_mode`, or `L` in dev builds):
 
 ## How Bubble Pop works
 
-1. Bubbles rise from the bottom, each holding an item from the week's pack: fruit photos
-   (week 2, `local_fruits`) or numbers १–५ with dots to count (week 4, `numbers_1_5`).
-2. The mascot asks for one item ("Pop the mango bubble!"). A big copy of that bubble sits
-   under the prompt card, so children who can't read see what to pop.
-3. Children pop bubbles by **reaching** with their hands. Only a moving hand pops, so
-   bubbles rising past hands resting at the hips don't count. Popping the asked item
-   counts; any other bubble still pops and shows its name. Nothing is ever "wrong".
-4. 2 pops (toddler) or 3 (kid) of the asked item win the round: praise, the word in 3
-   scripts. Toddlers only get the asked item; kids get a mix.
-5. No luck for 14 s: hint. Bubbles slow down and drift to the hands. After a second
+1. Two picker cards: **Fruit bubbles** (`local_fruits` photos) and **Number bubbles**
+   (`numbers_1_5`, numerals with dots to count). Picking one asks **Easy / Medium / Hard**.
+   In a session, weeks 2 and 4 play it at the centre's age group (3–4 → Easy, 5–6 → Medium).
+2. The mascot asks for one item ("Pop number 1!"). A big copy of it sits under the prompt
+   card, so children who can't read see what to pop.
+3. Mixed in are **decoys** and, from Medium on, **bees** (red rim, crossed bee under the
+   prompt): don't pop those. Decoys by level: Easy = only other packs (number round →
+   fruit decoys, easy to tell apart) · Medium / Hard = other numbers *and* fruits.
+4. **Score top right: +1 for the asked item, −1 for a wrong pop** (decoy or bee). The score
+   can go below 0 (shown in red). A wrong pop also gives a light red flash over the
+   screen. Each popped bubble shows "+1" / "−1" and its name. Big score at the end.
+5. Children pop by **reaching**: only a moving hand pops, so bubbles rising past resting
+   hands don't count. 2 / 3 / 4 correct pops (Easy / Medium / Hard) win a round.
+6. No luck for 14 s: hint. Bubbles slow down and drift to the hands. After a second
    timeout, a gentle move on.
 
-The session plays it in the theme step for weeks 2 and 4. The demo default is week 3,
-whose games aren't built yet: pick week 2 or 4 in the supervisor menu to see Bubble Pop
-in a session, or pick it in "Choose a game" (free play).
+| Level | Rounds | Pops to win | Bubbles on screen | Speed | Bees | Decoys |
+|---|---|---|---|---|---|---|
+| Easy | 6 | 2 | 5 | slow | none | other packs |
+| Medium | 8 | 3 | 7 | medium | 12 % | all |
+| Hard | 10 | 4 | 9 | fast | 20 % | all |
+
+All of it is tunable in `content/games/bubble_pop.yaml` (`levels:`).
+
+## Performance notes (Pi 5)
+
+- Camera JPEG decoding runs on a worker thread, not the game's main thread.
+- Bubble looks are drawn once into textures (one draw per bubble per frame).
+- Celebration stars reuse one shape (no per-frame allocations), max 450 particles.
 
 ## Voice
 

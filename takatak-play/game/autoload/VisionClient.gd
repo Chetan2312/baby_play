@@ -41,7 +41,12 @@ var last_pose_ms := 0
 var _retry_at := 0.0
 var _sub := {"t": "subscribe", "frames": true, "mask": false, "loudness": false, "motion": []}
 var _sticky := {}   # set_players / set_camera / set_difficulty, re-sent after reconnect
-var _img := Image.new()
+# JPEG decode runs on a worker thread (it took several ms per frame on the Pi's main
+# thread). One decode in flight; newer packets replace the waiting one (latest wins).
+var _decode_task := -1
+var _decode_pending := PackedByteArray()
+var _decoded: Image = null
+var _decoded_mutex := Mutex.new()
 
 
 func _ready() -> void:
@@ -90,7 +95,8 @@ func _process(_delta: float) -> void:
 		if latest_pose != null:
 			_handle(latest_pose)
 		if latest_frame.size() > 0:
-			_decode_frame(latest_frame)
+			_decode_pending = latest_frame
+		_pump_decode()
 	elif st == WebSocketPeer.STATE_CLOSED:
 		if is_open:
 			is_open = false
@@ -151,15 +157,44 @@ func _handle(msg: Dictionary) -> void:
 			pass
 
 
-func _decode_frame(pkt: PackedByteArray) -> void:
-	var err := _img.load_jpg_from_buffer(pkt.slice(5))
-	if err != OK:
+func _exit_tree() -> void:
+	if _decode_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_decode_task)
+
+
+func _pump_decode() -> void:
+	if _decode_task >= 0 and WorkerThreadPool.is_task_completed(_decode_task):
+		WorkerThreadPool.wait_for_task_completion(_decode_task)
+		_decode_task = -1
+		_decoded_mutex.lock()
+		var img := _decoded
+		_decoded = null
+		_decoded_mutex.unlock()
+		if img != null:
+			_apply_frame(img)
+	if _decode_task < 0 and _decode_pending.size() > 0:
+		var pkt := _decode_pending
+		_decode_pending = PackedByteArray()
+		_decode_task = WorkerThreadPool.add_task(_decode_job.bind(pkt), false, "jpeg decode")
+
+
+## worker thread: JPEG bytes → Image (no scene access here)
+func _decode_job(pkt: PackedByteArray) -> void:
+	var img := Image.new()
+	if img.load_jpg_from_buffer(pkt.slice(5)) != OK:
 		return
-	var size := Vector2(_img.get_width(), _img.get_height())
+	_decoded_mutex.lock()
+	_decoded = img
+	_decoded_mutex.unlock()
+
+
+## main thread: upload the decoded frame
+func _apply_frame(img: Image) -> void:
+	var size := Vector2(img.get_width(), img.get_height())
 	if frame_texture == null or frame_texture.get_size() != size:
-		frame_texture = ImageTexture.create_from_image(_img)
+		frame_texture = ImageTexture.create_from_image(img)
 	else:
-		frame_texture.update(_img)
+		frame_texture.update(img)
 	frame_size = size
 	frames_received += 1
 	frame_received.emit(frame_texture)

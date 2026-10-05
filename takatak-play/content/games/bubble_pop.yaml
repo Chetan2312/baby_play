@@ -1,28 +1,42 @@
-# Bubble Pop: bubbles rise from the bottom, each holding an item from the week's pack.
-# The mascot asks for one item; children pop bubbles with their hands. Popping the asked
-# item counts; any other bubble still pops and shows its name (never "wrong").
-# Values given as {toddler: x, kid: y} depend on the difficulty.
+# Bubble Pop: bubbles rise from the bottom. The mascot asks for one item ("Pop number 1!");
+# children pop bubbles with their hands. Mixed in: decoy bubbles (other items, from the
+# same pack and/or other packs) and, from Medium on, bee bubbles that must NOT be popped.
+# Scoreboard top right: ✓ correct pops (the asked item) · ✗ wrong pops (anything else).
 game: bubble_pop
 title: { mr: "फुगे फोडा", hi: "बुलबुले फोड़ो", en: "Bubble Pop" }
 intro_line: bubble_intro
-hint_prefix: bubble_pop_hint      # bubble_pop_hint_01, _02 …
-default_pack: local_fruits        # used when the week's pack isn't one of the packs below
-settings:
-  rounds: 8
-  pops_to_win: { toddler: 2, kid: 3 }        # pops of the asked item per round
-  target_share: { toddler: 1.0, kid: 0.5 }   # share of new bubbles that are the asked item
-  max_bubbles: { toddler: 5, kid: 7 }
-  spawn_every_s: { toddler: 1.1, kid: 0.8 }
-  rise_speed: { toddler: 0.07, kid: 0.1 }    # screen heights per second
-  bubble_radius: { toddler: 0.085, kid: 0.07 }   # fraction of screen height
-  spawn_x: [0.36, 0.82]           # where bubbles start (fraction of width): right of the prompt column
-  hand_reach: 0.5                 # fraction of the hand circle that counts as touching
-  min_hand_speed: 0.12            # screen heights/s: only a MOVING hand pops (resting hands at the hips don't)
+bee_intro_line: bubble_bee_intro      # said at the start when the level has bees
+bee_oops_line: bubble_bee_oops        # after a bee pop (at most every bee_oops_every_s)
+hint_prefix: bubble_pop_hint          # bubble_pop_hint_01, _02 …
+default_pack: local_fruits            # when the week's pack isn't one of the packs below
+session_level: { toddler: easy, kid: medium }   # level when the session plays it
+
+# One "Choose a game" card per entry; picking it then offers Easy / Medium / Hard.
+picker:
+  - { pack: local_fruits, title: { mr: "फळांचे फुगे", hi: "फलों के बुलबुले", en: "Fruit bubbles" } }
+  - { pack: numbers_1_5,  title: { mr: "अंकांचे फुगे", hi: "अंकों के बुलबुले", en: "Number bubbles" } }
+
+settings:                       # all levels
+  spawn_x: [0.36, 0.82]         # where bubbles start (fraction of width): right of the prompt column
+  hand_reach: 0.5               # fraction of the hand circle that counts as touching
+  min_hand_speed: 0.12          # screen heights/s: only a MOVING hand pops (resting hands don't)
   intro_arm_s: 0.8
-  prompt_timeout_s: 14            # counted only while no voice line is playing
-  hint_attempts: 1                # timeouts that get a hint (bubbles slow down and come to the hands)
-  hint_drift: 0.25                # screen fractions per second towards the nearest hand while hinting
+  prompt_timeout_s: 14          # counted only while no voice line is playing
+  hint_attempts: 1              # timeouts that get a hint (bubbles slow down and come to the hands)
+  hint_drift: 0.25              # screen fractions per second towards the nearest hand while hinting
   celebrate_s: 2.2
+  summary_s: 4.5                # final scoreboard before the game ends
+  bee_oops_every_s: 8
+
+# distractors: other_packs = decoys only from OTHER packs (number round → fruit decoys:
+#   easy to tell apart) · all = same pack + other packs (1 among 2, 3 … and fruits)
+levels:
+  easy:   { rounds: 6,  pops_to_win: 2, max_bubbles: 5, spawn_every_s: 1.1,  rise_speed: 0.065, bubble_radius: 0.09,  target_share: 0.6,  bee_share: 0.0,  distractors: other_packs }
+  medium: { rounds: 8,  pops_to_win: 3, max_bubbles: 7, spawn_every_s: 0.85, rise_speed: 0.09,  bubble_radius: 0.077, target_share: 0.45, bee_share: 0.12, distractors: all }
+  hard:   { rounds: 10, pops_to_win: 4, max_bubbles: 9, spawn_every_s: 0.6,  rise_speed: 0.13,  bubble_radius: 0.066, target_share: 0.35, bee_share: 0.2,  distractors: all }
+
+bee: { id: bee, word: word_bee, avoid: true, color: [1.0, 0.82, 0.15] }
+
 packs:
   local_fruits:
     - { id: mango,       word: word_mango,       line: bubble_mango,       image: packs/local_fruits/mango.webp,       color: [1.0, 0.72, 0.2] }
