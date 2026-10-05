@@ -131,10 +131,12 @@ def gesture(player, name, state, confidence, ts=None):
                    confidence=round(float(confidence), 3))
 
 
-def status(fps, temp_c=None, errors=(), camera=None):
+def status(fps, temp_c=None, errors=(), camera=None, latency=None):
+    """latency: {"pose": ms, "hand_ms": ms, "hand_latency_ms": ms} (capture → result)."""
     return message("status", fps={k: round(float(v), 1) for k, v in fps.items()},
                    temp_c=None if temp_c is None else round(float(temp_c), 1),
-                   errors=list(errors), camera=camera)
+                   errors=list(errors), camera=camera,
+                   latency_ms={k: round(float(v)) for k, v in (latency or {}).items()})
 
 
 def no_player(seconds):

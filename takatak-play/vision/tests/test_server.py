@@ -58,8 +58,8 @@ def test_end_to_end_with_mock():
             kind, _, jpg = P.unpack_binary(frame)
             assert kind == P.KIND_FRAME and jpg[:2] == b"\xff\xd8"
             await ws.send(json.dumps({"t": "mock_expect", "name": "hands_up"}))
-            hands = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "hands" and m["hands"])
-            assert {h["gesture"] for h in hands["hands"]} == {"point", "open"}   # mock: right points
+            hands = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "hands" and len(m["hands"]) == 2)
+            assert {h["side"]: h["gesture"] for h in hands["hands"]} == {"r": "point", "l": "open"}   # mock
             await ws.send(json.dumps({"t": "mock_expect", "name": "touch_nose"}))
             held = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "gesture"
                                     and m["name"] == "touch_nose" and m["state"] == "held")

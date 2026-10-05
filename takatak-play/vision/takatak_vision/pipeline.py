@@ -49,7 +49,8 @@ class HardwareSource:
         self.frames = self.enc.frames
         self.hands = None
         if (cfg.get("hands") or {}).get("enabled", False):
-            self.hands = HandThread(cfg, self.cam.slot, self.inf.results, self.mirror, self.perf.rates["hands"])
+            self.hands = HandThread(cfg, self.cam.slot, self.inf.results, self.mirror, self.perf.rates["hands"],
+                                    perf=self.perf)
         self.hands_results = self.hands.results if self.hands else None
         self._throttled = False
 

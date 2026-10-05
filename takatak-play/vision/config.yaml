@@ -144,6 +144,13 @@ hands:
   only_raised: true               # track only raised hands (wrist above elbow): pointing is up
   box_scale: 2.4                  # hand box side ÷ estimated hand length
   min_conf: 0.4
+  process: false                  # true = hand model in its own process. Measured: MediaPipe releases
+                                  # the Python lock, so in-process doesn't slow camera/pose; the process
+                                  # only adds memory. Try true if the Pi's pose fps drops with hands on.
+  other_every: 3                  # while a hand points, other hands are tracked every Nth frame
+  one_euro:                       # finger smoothing: quicker than the body points
+    min_cutoff: 2.0
+    beta: 0.08
 
 privacy:
   save_frames: false              # the service never writes frames; must stay false

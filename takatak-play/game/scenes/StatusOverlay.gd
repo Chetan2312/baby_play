@@ -82,8 +82,8 @@ func _process(delta: float) -> void:
 	_debug.visible = show_debug
 	if show_debug:
 		var st: Dictionary = VisionClient.last_status
-		_debug.text = "game %d fps · feed %.1f fps · vision %s · temp %s °C · camera %s · %s · session %s · week %d · %s/%s/%s · people %d" % [
-			Engine.get_frames_per_second(), _feed_fps, str(st.get("fps", {})), str(st.get("temp_c", "?")),
+		_debug.text = "game %d fps · feed %.1f fps · vision %s · latency %s ms · temp %s °C · camera %s · %s · session %s · week %d · %s/%s/%s · people %d" % [
+			Engine.get_frames_per_second(), _feed_fps, str(st.get("fps", {})), str(st.get("latency_ms", {})), str(st.get("temp_c", "?")),
 			str(VisionClient.info.get("camera", "?")), GameManager.Phase.keys()[GameManager.phase],
 			SessionDirector.state_name(), Centre.week(),
 			Settings.difficulty, Settings.language_mode, Settings.primary_language, VisionClient.people.size()]

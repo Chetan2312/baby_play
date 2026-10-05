@@ -87,6 +87,14 @@ def gesture(ext):
     return "other"
 
 
+def crop_to_frame(lm_crop, roi, frame_w, frame_h):
+    x0, y0, x1, y1 = roi
+    out = np.array(lm_crop, dtype=np.float64, copy=True)
+    out[:, 0] = (x0 + out[:, 0] * (x1 - x0)) / frame_w
+    out[:, 1] = (y0 + out[:, 1] * (y1 - y0)) / frame_h
+    return out
+
+
 def mirror_x(lm):
     out = np.array(lm, dtype=np.float64, copy=True)
     out[:, 0] = 1.0 - out[:, 0]
@@ -131,30 +139,119 @@ class HandTracker:
                 self._trackers.pop(k).close()
                 self._ts.pop(k, None)
 
-    def track(self, key, frame_rgb, roi, t_ms):
-        """frame_rgb: (H, W, 3+) uint8 camera frame · roi: from hand_roi() · t_ms: monotonic ms.
-        → {"landmarks": (21, 3) normalised to the full frame, "fingers", "count", "gesture",
-           "score"} or None when no hand is found in the box."""
-        x0, y0, x1, y1 = roi
-        if x1 - x0 < 16 or y1 - y0 < 16:
+    def track_crop(self, key, crop, t_ms):
+        """crop: (h, w, 3) uint8 RGB hand box · t_ms: monotonic ms.
+        → {"lm_crop": (21, 3) normalised to the crop, "fingers", "count", "gesture", "score"}
+        or None when no hand is found."""
+        ch, cw = crop.shape[:2]
+        if cw < 16 or ch < 16:
             return None
-        crop = np.ascontiguousarray(frame_rgb[y0:y1, x0:x1, :3])
-        img = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=crop)
+        img = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=np.ascontiguousarray(crop[..., :3]))
         ts = max(int(t_ms), self._ts.get(key, 0) + 1)   # VIDEO mode needs rising timestamps
         res = self._tracker(key).detect_for_video(img, ts)
         self._ts[key] = ts
         if not res.hand_landmarks:
             return None
-        h, w = frame_rgb.shape[:2]
-        cw, ch = x1 - x0, y1 - y0
-        lm = np.array([[(x0 + p.x * cw) / w, (y0 + p.y * ch) / h, p.z] for p in res.hand_landmarks[0]])
-        crop_px = np.array([[p.x * cw, p.y * ch] for p in res.hand_landmarks[0]])
-        ext = fingers_extended(crop_px)
+        lm = np.array([[p.x, p.y, p.z] for p in res.hand_landmarks[0]])
+        ext = fingers_extended(lm[:, :2] * [cw, ch])
         score = float(res.handedness[0][0].score) if res.handedness else 0.0
-        return {"landmarks": lm, "fingers": ext, "count": int(sum(ext)), "gesture": gesture(ext), "score": score}
+        return {"lm_crop": lm, "fingers": ext, "count": int(sum(ext)), "gesture": gesture(ext), "score": score}
+
+    def track(self, key, frame_rgb, roi, t_ms):
+        """frame_rgb: (H, W, 3+) uint8 camera frame · roi: from hand_roi() · t_ms: monotonic ms.
+        → like track_crop() plus "landmarks": (21, 3) normalised to the full frame."""
+        x0, y0, x1, y1 = roi
+        res = self.track_crop(key, frame_rgb[y0:y1, x0:x1], t_ms)
+        if res is not None:
+            res["landmarks"] = crop_to_frame(res["lm_crop"], roi, frame_rgb.shape[1], frame_rgb.shape[0])
+        return res
 
     def close(self):
         self.forget(set())
+
+
+# ---- backends: same interface, run(jobs, t_ms) → {key: track_crop result | None} --------
+
+class InProcessHands:
+    """Hand model in this process (tools, tests)."""
+
+    def __init__(self, tracker):
+        self.tracker = tracker
+
+    def run(self, jobs, t_ms):
+        return {key: self.tracker.track_crop(key, crop, t_ms) for key, crop in jobs}
+
+    def forget(self, keys):
+        self.tracker.forget(set(keys))
+
+    def close(self):
+        self.tracker.close()
+
+
+def _worker_main(conn, model, min_conf):
+    """Child process: owns the MediaPipe trackers. Messages: ("track", (jobs, t_ms)) →
+    ("result", {key: res}) · ("forget", keys) · None = quit."""
+    try:
+        tracker = HandTracker(model, min_conf)
+    except HandsError as e:
+        conn.send(("error", str(e)))
+        return
+    conn.send(("ready", None))
+    try:
+        while True:
+            msg = conn.recv()
+            if msg is None:
+                break
+            kind, payload = msg
+            if kind == "forget":
+                tracker.forget(set(payload))
+            elif kind == "track":
+                jobs, t_ms = payload
+                conn.send(("result", {key: tracker.track_crop(key, crop, t_ms) for key, crop in jobs}))
+    except (EOFError, KeyboardInterrupt):
+        pass
+    finally:
+        tracker.close()
+
+
+class HandWorker:
+    """Hand model in its OWN PROCESS (another CPU core, no Python GIL shared with the camera,
+    pose and JPEG threads). Only the small hand crops cross the pipe (~100 KB each)."""
+
+    def __init__(self, model=MODEL, min_conf=0.4, start_timeout_s=60.0, reply_timeout_s=2.0):
+        import multiprocessing as mproc
+        ctx = mproc.get_context("spawn")   # a clean child: no camera / Hailo state inherited
+        self.conn, child = ctx.Pipe()
+        self.proc = ctx.Process(target=_worker_main, args=(child, model, min_conf), daemon=True,
+                                name="takatak-hands")
+        self.proc.start()
+        child.close()
+        self.reply_timeout_s = reply_timeout_s
+        if not self.conn.poll(start_timeout_s):
+            self.close()
+            raise HandsError("hand worker didn't start")
+        kind, payload = self.conn.recv()
+        if kind == "error":
+            self.close()
+            raise HandsError(payload)
+
+    def run(self, jobs, t_ms):
+        self.conn.send(("track", (jobs, t_ms)))
+        if not self.conn.poll(self.reply_timeout_s):
+            raise HandsError("hand worker stopped answering")
+        return self.conn.recv()[1]
+
+    def forget(self, keys):
+        self.conn.send(("forget", list(keys)))
+
+    def close(self):
+        try:
+            self.conn.send(None)
+        except (OSError, ValueError):
+            pass
+        self.proc.join(timeout=2)
+        if self.proc.is_alive():
+            self.proc.terminate()
 
 
 class HandThread(threading.Thread):
@@ -162,23 +259,29 @@ class HandThread(threading.Thread):
 
     Runs only while `wanted` is set (a game subscribed to hands). Per frame, for each active
     player's (raised) hand: box from the pose wrist/elbow in the high-resolution main frame
-    → HandTracker → One Euro smoothing (same filter as the pose keypoints) → display space.
+    → hand model (in-process, or its own process with hands.process) → One Euro (hand-tuned) →
+    display space. Focus: a hand that is pointing is tracked every frame, the other hands
+    every `other_every` frames (their last result is re-sent in between).
     """
 
-    def __init__(self, cfg, camera_slot, pose_slot, mirror, rate=None, tracker=None):
+    def __init__(self, cfg, camera_slot, pose_slot, mirror, rate=None, tracker=None, perf=None):
         super().__init__(daemon=True, name="hands")
         self.hcfg = cfg.get("hands") or {}
-        self.scfg = cfg["smoothing"]
+        self.scfg = dict(cfg["smoothing"], filter="one_euro")
+        self.scfg["one_euro"] = dict(cfg["smoothing"].get("one_euro") or {}, **(self.hcfg.get("one_euro") or {}))
         self.camera_slot = camera_slot
         self.pose_slot = pose_slot
         self.mirror = mirror
         self.rate = rate
+        self.perf = perf
         self.results = LatestSlot()          # protocol "hands" message dicts
         self.wanted = threading.Event()
         self.error = None
         self.ready = False
-        self._tracker = tracker
+        self._backend = InProcessHands(tracker) if tracker is not None else None
         self._smoothers = {}
+        self._last = {}                      # key → last wire dict (re-sent for skipped hands)
+        self._frame_n = 0
         self._quit = threading.Event()
 
     def stop(self):
@@ -186,8 +289,12 @@ class HandThread(threading.Thread):
         self.wanted.set()
 
     def _open(self):
-        if self._tracker is None:
-            self._tracker = HandTracker(self.hcfg.get("model", MODEL), float(self.hcfg.get("min_conf", 0.4)))
+        if self._backend is None:
+            model, conf = self.hcfg.get("model", MODEL), float(self.hcfg.get("min_conf", 0.4))
+            if self.hcfg.get("process", False):
+                self._backend = HandWorker(model, conf)
+            else:
+                self._backend = InProcessHands(HandTracker(model, conf))
         self.ready = True
 
     def process(self, frame, people, frame_id, t_ms):
@@ -195,7 +302,10 @@ class HandThread(threading.Thread):
         fh, fw = frame.shape[:2]
         only_raised = bool(self.hcfg.get("only_raised", True))
         scale = float(self.hcfg.get("box_scale", 2.4))
-        out, keys = [], set()
+        other_every = max(1, int(self.hcfg.get("other_every", 3)))
+        self._frame_n += 1
+        pointing = {k for k, h in self._last.items() if h["gesture"] == "point"}
+        jobs, rois, keys, carried = [], {}, set(), []
         for p in people:
             if not p.get("active"):
                 continue
@@ -205,21 +315,40 @@ class HandThread(threading.Thread):
                     continue
                 if only_raised and not w[1] < e[1] + 0.01:
                     continue
-                cam = (lambda q: ((1.0 - q[0]) if self.mirror else q[0], q[1]))
-                roi = hand_roi(cam(w), cam(e), fw, fh, scale=scale)
                 key = (int(p["id"]), side)
                 keys.add(key)
-                hand = self._tracker.track(key, frame, roi, t_ms)
-                if hand is None:
-                    self._smoothers.pop(key, None)
+                if pointing and key not in pointing and key in self._last and self._frame_n % other_every:
+                    carried.append(self._last[key])      # focus on the pointing hand this frame
                     continue
-                lm = self._smooth(key, hand["landmarks"], fw, fh, t_ms / 1000.0)
-                disp = mirror_x(lm) if self.mirror else lm
-                out.append(P.hand_to_wire(key[0], side, disp, hand["fingers"], hand["count"], hand["gesture"]))
-        self._tracker.forget(keys)
+                cam = (lambda q: ((1.0 - q[0]) if self.mirror else q[0], q[1]))
+                roi = hand_roi(cam(w), cam(e), fw, fh, scale=scale)
+                rois[key] = roi
+                jobs.append((key, np.ascontiguousarray(frame[roi[1]:roi[3], roi[0]:roi[2], :3])))
+        t0 = time.monotonic()
+        results = self._backend.run(jobs, t_ms) if jobs else {}
+        if self.perf is not None and jobs:
+            self.perf.means["hand_ms"].add((time.monotonic() - t0) * 1000 / len(jobs))
+        out = list(carried)
+        for key, roi in rois.items():
+            hand = results.get(key)
+            if hand is None:
+                self._smoothers.pop(key, None)
+                self._last.pop(key, None)
+                continue
+            lm = crop_to_frame(hand["lm_crop"], roi, fw, fh)
+            lm = self._smooth(key, lm, fw, fh, t_ms / 1000.0)
+            disp = mirror_x(lm) if self.mirror else lm
+            wire = P.hand_to_wire(key[0], key[1], disp, hand["fingers"], hand["count"], hand["gesture"])
+            self._last[key] = wire
+            out.append(wire)
+        if set(self._smoothers) - keys:
+            self._backend.forget(keys)
         for k in list(self._smoothers):
             if k not in keys:
                 del self._smoothers[k]
+        for k in list(self._last):
+            if k not in keys:
+                del self._last[k]
         return P.hands(frame_id, out)
 
     def _smooth(self, key, lm, fw, fh, now):
@@ -254,12 +383,26 @@ class HandThread(threading.Thread):
             people = res.pose_msg["people"] if res is not None else []
             try:
                 msg = self.process(bundle.main, people, bundle.frame_id, time.monotonic() * 1000)
+            except HandsError as e:            # worker died / stuck: restart it
+                self.error = f"Hand tracking: {e}"
+                self._close_backend()
+                self.ready = False
+                continue
             except Exception as e:  # noqa: BLE001 - keep the service up; show it on the status line
                 self.error = f"Hand tracking: {e}"
                 continue
             self.error = None
             self.results.put(msg)
+            if self.perf is not None:
+                self.perf.means["hand_latency_ms"].add((time.monotonic() - bundle.t) * 1000)
             if self.rate:
                 self.rate.tick()
-        if self._tracker is not None:
-            self._tracker.close()
+        self._close_backend()
+
+    def _close_backend(self):
+        if self._backend is not None:
+            try:
+                self._backend.close()
+            except Exception:  # noqa: BLE001
+                pass
+            self._backend = None

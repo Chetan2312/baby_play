@@ -180,8 +180,9 @@ class VisionServer:
             await asyncio.sleep(self.cfg["status_every_s"])
             temp = self.source.tick()
             if self.clients:
+                lat = self.source.perf.latencies() if hasattr(self.source.perf, "latencies") else None
                 txt = P.dumps(P.status(self.source.perf.fps(), temp, self.source.errors(),
-                                       self.source.camera_name))
+                                       self.source.camera_name, lat))
                 for c in self.clients:
                     c.push(txt)
 

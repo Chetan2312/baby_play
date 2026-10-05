@@ -73,20 +73,20 @@ def test_tracker_runs_on_an_empty_frame():
 
 
 class StubTracker:
-    """Stands in for MediaPipe: 'finds' a pointing hand in every box."""
+    """Stands in for MediaPipe: 'finds' a hand in every box (pointing unless told otherwise)."""
 
-    def __init__(self):
+    def __init__(self, up=("index",), up_by_side=None):
         self.calls = []
+        self.up = up
+        self.up_by_side = up_by_side or {}
 
-    def track(self, key, frame, roi, t_ms):
-        self.calls.append((key, roi))
-        x0, y0, x1, y1 = roi
-        fh, fw = frame.shape[:2]
-        lm = synthetic_hand(("index",))
+    def track_crop(self, key, crop, t_ms):
+        self.calls.append((key, crop.shape))
+        lm = synthetic_hand(self.up_by_side.get(key[1], self.up))
         lm = (lm - lm.min(0)) / (lm.max(0) - lm.min(0))
-        full = np.c_[(x0 + lm[:, 0] * (x1 - x0)) / fw, (y0 + lm[:, 1] * (y1 - y0)) / fh, np.zeros(21)]
         ext = H.fingers_extended(lm)
-        return {"landmarks": full, "fingers": ext, "count": sum(ext), "gesture": H.gesture(ext), "score": 1.0}
+        return {"lm_crop": np.c_[lm, np.zeros(21)], "fingers": ext, "count": sum(ext),
+                "gesture": H.gesture(ext), "score": 1.0}
 
     def forget(self, keys):
         pass
@@ -111,10 +111,10 @@ def test_hand_thread_tracks_raised_hands_and_mirrors():
     assert msg["t"] == "hands" and len(msg["hands"]) == 1
     h = msg["hands"][0]
     assert h["side"] == "l" and h["gesture"] == "point" and h["player"] == 5
-    # display x of the left wrist is 0.4 → the hand box is cut at camera x 0.6 (mirrored) …
-    (key, roi), = stub.calls
-    assert roi[0] < 0.6 * 1920 < roi[2]
-    # … and the landmarks come back in display space, near the display wrist
+    (key, shape), = stub.calls
+    assert key == (5, "l") and shape[0] == shape[1] and shape[2] == 3
+    # display x of the left wrist is 0.4: cut at camera x 0.6 (mirrored), and the landmarks
+    # come back in display space, near the display wrist
     assert abs(h["kp"][0][0] - 0.4) < 0.08
     assert th.process(frame, [person(0.7, 0.7)], 2, 1033.0)["hands"] == []   # arms down
 
@@ -133,3 +133,40 @@ def test_encoder_downscale():
     img = np.zeros((1080, 1920, 4), np.uint8)
     assert downscale(img, (960, 540)).shape == (540, 960, 4)
     assert downscale(img, (1920, 1080)) is img
+
+
+def test_focus_on_the_pointing_hand():
+    from takatak_vision.config import load_config
+    from takatak_vision.slots import LatestSlot
+    cfg = load_config()
+    cfg["hands"]["other_every"] = 3
+    stub = StubTracker(up_by_side={"l": ("index",), "r": ("thumb", "index", "middle", "ring", "pinky")})
+    th = H.HandThread(cfg, LatestSlot(), LatestSlot(), mirror=True, tracker=stub)
+    frame = np.zeros((1080, 1920, 4), np.uint8)
+    both_up = [person(0.3, 0.3)]
+    th.process(frame, both_up, 1, 0.0)                 # first frame: both tracked; left points, right open
+    stub.calls.clear()
+    for n in range(2, 8):
+        msg = th.process(frame, both_up, n, n * 33.0)
+        assert len(msg["hands"]) == 2                  # the other hand is still reported
+    tracked = [k for k, _ in stub.calls]
+    assert tracked.count((5, "l")) == 6                # pointing hand: every frame
+    assert 1 <= tracked.count((5, "r")) <= 3           # other hand: every 3rd frame
+
+
+def test_worker_reports_a_missing_model(tmp_path):
+    with pytest.raises(H.HandsError, match="hand model missing"):
+        H.HandWorker(model=str(tmp_path / "nope.task"), start_timeout_s=30)
+
+
+@pytest.mark.skipif(not os.path.exists(vision_path(H.MODEL)), reason="hand model not downloaded")
+def test_worker_process_runs_the_model():
+    pytest.importorskip("mediapipe")
+    w = H.HandWorker()
+    try:
+        out = w.run([((1, "l"), np.zeros((200, 200, 3), np.uint8))], 1)
+        assert out == {(1, "l"): None}
+        w.forget([])
+    finally:
+        w.close()
+    assert not w.proc.is_alive()
