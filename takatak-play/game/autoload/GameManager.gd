@@ -3,8 +3,8 @@ extends Node
 ##   session    (default) SessionDirector runs the anganwadi session; this file loads the
 ##              games it asks for (run_game), routes vision signals, pauses when the
 ##              children leave, and reports game_done.
-##   free_play  the old Phase 2 flow (Attract → greeting → playlist → Finish), reachable
-##              only from the supervisor menu (or --free-play in dev).
+##   free_play  "Choose a game": children pick a game by holding a hand on its card
+##              (GamePicker), from the supervisor menu (or --free-play in dev).
 ##
 ## Dev-build keys: X skip round · L language mode · K primary language · T toddler/kid ·
 ## C camera · S skeleton · D debug · F2 Devanagari test · Ctrl+Q quit.
@@ -12,7 +12,7 @@ extends Node
 
 signal game_done(result: Dictionary)
 
-enum Phase { BOOT, IDLE, ATTRACT, GREETING, PLAYING, PAUSED, FINISH, DEVA }
+enum Phase { BOOT, IDLE, PLAYING, PAUSED, DEVA }
 
 const UiKit = preload("res://core/UiKit.gd")
 const SupervisorScript = preload("res://scenes/Supervisor.gd")
@@ -20,8 +20,7 @@ const GAME_SCENES := {
 	"simon_says": "res://games/simon_says/SimonSays.tscn",
 	"bubble_pop": "res://games/bubble_pop/BubblePop.tscn",
 }
-const ATTRACT_SCENE := "res://scenes/Attract.tscn"
-const FINISH_SCENE := "res://scenes/Finish.tscn"
+const PICKER_SCENE := "res://scenes/GamePicker.tscn"
 const DEVA_SCENE := "res://scenes/DevaTest.tscn"
 
 var phase := Phase.BOOT
@@ -37,18 +36,16 @@ var praise = null
 var overlay = null
 var supervisor_layer: Control = null
 
-var current = null            # current scene node (idle / attract / game / finish)
+var current = null            # current scene node (idle / picker / game)
 var current_game = null       # current BaseGame, or null
 var current_game_id := ""
 var _game_ended := false      # current_game already reported finished
-var playlist_idx := 0
-var session_started_ms := 0
-var session_results: Array = []
 var present_since := -1.0
 var absent_since := 0.0
 var _pause_card: Control = null
 var _phase_before_deva := Phase.IDLE
 var _supervisor: Control = null
+var _last_picked := ""
 
 
 func attach(main_node: Node, parts: Dictionary) -> void:
@@ -190,107 +187,67 @@ func _on_game_finished(result: Dictionary) -> void:
 		phase = Phase.IDLE
 		game_done.emit(result)
 		return
-	session_results.append(result)
-	playlist_idx += 1
-	if playlist_idx < Settings.playlist.size() and not _session_over():
-		_load_game(Settings.playlist[playlist_idx])
-	else:
-		_finish()
+	show_picker.call_deferred()   # free play: back to "Choose a game"
 
 
-# ---- free play (old flow; supervisor menu only) ------------------------------------
+# ---- free play: "Choose a game" picker (supervisor menu) ---------------------------
 
 func enter_free_play() -> void:
 	mode = "free_play"
-	go_attract()
+	Stats.start_session()
+	show_picker()
 
 
 func exit_free_play() -> void:
-	if phase in [Phase.GREETING, Phase.PLAYING, Phase.PAUSED]:
-		stop_game()
-		Stats.end_session({"abandoned": true})
+	stop_game()
+	Stats.end_session()
 	mode = "session"
 	SessionDirector.go_idle()
 
 
+func show_picker() -> void:
+	if mode != "free_play":
+		return
+	var picker = show_scene(PICKER_SCENE)
+	if picker != null:
+		picker.setup_picker(game_ids(), _last_picked)
+
+
+## Built games, in GAME_SCENES order.
+func game_ids() -> Array:
+	var out: Array = []
+	for gid in GAME_SCENES:
+		if has_game(gid):
+			out.append(gid)
+	return out
+
+
+## Picker → start a game with this week's pack (the game falls back to its default pack).
+func pick_game(game_id: String) -> void:
+	_last_picked = game_id
+	var packs: Array = ContentDB.week(Centre.week()).get("packs", [])
+	if not run_game(game_id, {"pack": str(packs[0]) if not packs.is_empty() else ""}):
+		overlay.toast("Game not available: " + game_id)
+		show_picker()
+
+
 ## InputRouter actions while in free play.
 func free_play_action(action_name: String) -> void:
-	match action_name:
-		"next", "select":
-			match phase:
-				Phase.ATTRACT:
-					start_session()
-				Phase.PLAYING:
-					if current_game != null:
-						current_game.skip()
-				Phase.PAUSED:
+	if phase in [Phase.PLAYING, Phase.PAUSED]:
+		match action_name:
+			"next", "select":
+				if phase == Phase.PAUSED:
 					_resume()
-				Phase.FINISH:
-					go_attract()
-		"prev":
-			repeat_prompt()
-		"back", "long":
-			exit_free_play()
-
-
-func go_attract() -> void:
-	stop_game()
-	_clear_current()
-	phase = Phase.ATTRACT
-	camera_layer.set_mode("mirror")
-	VisionClient.subscribe(true)
-	mascot.go_home()
-	_spawn(ATTRACT_SCENE)
-
-
-func start_session() -> void:
-	if phase == Phase.GREETING or phase == Phase.PLAYING:
+				elif current_game != null:
+					current_game.skip()
+			"prev":
+				repeat_prompt()
+			"back", "long":
+				stop_game()
+				show_picker()
 		return
-	_clear_current()
-	phase = Phase.GREETING
-	session_started_ms = Time.get_ticks_msec()
-	session_results = []
-	playlist_idx = 0
-	Stats.start_session()
-	AudioDirector.sfx("start")
-	mascot.go_spotlight()
-	mascot.play("wave_hello")
-	praise.burst(Vector2(game_ui.size.x / 2.0, game_ui.size.y / 3.0), 50, 700.0)
-	var card := UiKit.card(UiKit.line_rows("greeting_01", Settings.ordered_langs(), 100))
-	UiKit.top_center(game_ui, card)
-	await AudioDirector.say("greeting_01", Settings.prompt_langs(0), true)
-	if phase != Phase.GREETING:
-		return
-	_load_game(Settings.playlist[0])
-
-
-func _load_game(game_id: String) -> void:
-	if not run_game(game_id):
-		overlay.toast("Game not available: " + game_id)
-		_finish()
-
-
-func _session_over() -> bool:
-	return (Time.get_ticks_msec() - session_started_ms) / 60000.0 >= Settings.session_minutes
-
-
-func _finish() -> void:
-	_clear_current()
-	phase = Phase.FINISH
-	var stars := 0
-	for r in session_results:
-		stars += int(r.get("successes", 0))
-	Stats.end_session()
-	var f = _spawn(FINISH_SCENE)
-	if f != null:
-		f.setup_finish(stars)
-
-
-func end_session_to_attract() -> void:
-	if phase in [Phase.GREETING, Phase.PLAYING, Phase.PAUSED]:
-		stop_game()
-		Stats.end_session({"abandoned": true})
-	go_attract()
+	if current != null and is_instance_valid(current) and current.has_method("on_action"):
+		current.on_action(action_name)   # the picker: move / start / back
 
 
 # ---- supervisor menu -------------------------------------------------------------
@@ -339,9 +296,6 @@ func _process(_delta: float) -> void:
 	var absent_for := now - absent_since if absent_since >= 0.0 else 0.0
 
 	match phase:
-		Phase.ATTRACT:
-			if mode == "free_play" and present_for >= s("attract_detect_s"):
-				start_session()
 		Phase.PLAYING:
 			if not present and absent_for >= s("pause_after_s"):
 				_pause()
@@ -350,7 +304,8 @@ func _process(_delta: float) -> void:
 				_resume()
 			elif absent_for >= s("abandon_s"):
 				if mode == "free_play":
-					end_session_to_attract()
+					stop_game()
+					show_picker()
 				else:
 					_resume_card_only()
 					SessionDirector.on_abandon()

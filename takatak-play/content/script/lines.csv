@@ -251,3 +251,6 @@ word_four,word,1,en,Four,clear,false,false
 word_five,word,1,mr,पाच,clear,false,false
 word_five,word,1,hi,पाँच,clear,false,false
 word_five,word,1,en,Five,clear,false,false
+picker_choose,transition,1,mr,कोणता खेळ खेळायचा? हात चित्रावर धरून ठेव!,inviting,false,false
+picker_choose,transition,1,hi,कौन सा खेल खेलें? हाथ तस्वीर पर रखो!,inviting,false,false
+picker_choose,transition,1,en,Which game shall we play? Hold your hand on a picture!,inviting,false,false

@@ -23,7 +23,9 @@ item_usage:           {mr: "वापराची आकडेवारी", en:
 item_export:          {mr: "आकडेवारी USB वर", en: "Export usage to USB", reviewed: false}
 item_privacy:         {mr: "गोपनीयता", en: "Privacy", reviewed: false}
 item_status:          {mr: "यंत्रणा स्थिती", en: "System status", reviewed: false}
-item_free_play:       {mr: "मुक्त खेळ (जुनी पद्धत)", en: "Free play (old flow)", reviewed: false}
+item_free_play:       {mr: "खेळ निवडा (मुक्त खेळ)", en: "Choose a game (free play)", reviewed: false}
+picker_title:         {mr: "खेळ निवडा", en: "Choose a game", reviewed: false}
+picker_help:          {mr: "हात चित्रावर धरून ठेवा · बटण: दाबा = पुढे, धरा = सुरू, B = मागे", en: "Hold a hand on a picture · button: press = next, hold = start, B = back", reviewed: false}
 item_exit:            {mr: "बाहेर पडा", en: "Exit", reviewed: false}
 
 val_mr_first:         {mr: "मराठी प्रथम", en: "Marathi first", reviewed: false}

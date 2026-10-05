@@ -4,13 +4,9 @@ extends Node
 ## re-exporting. Search order: --content=PATH, <executable dir>/content, <project>/../content.
 
 const SESSION_DEFAULTS := {
-	"attract_detect_s": 1.0,
 	"pause_after_s": 3.0,
 	"resume_detect_s": 0.5,
 	"abandon_s": 60.0,
-	"finish_s": 7.0,
-	"attract_repeat_s": 25.0,
-	"sleep_after_s": 60.0,
 	"language_gap_s": 0.3,
 	"name_chance": 0.33,
 	"duck_db": -12.0,

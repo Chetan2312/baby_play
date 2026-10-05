@@ -48,7 +48,7 @@ game/                       Godot 4 project (open this folder in the editor; Com
   autoload/                 Settings, ContentDB, Centre, VisionClient, AudioDirector, Stats (usage
                             counters), InputRouter (worker buttons), GameManager, SessionDirector
   core/                     BaseGame, CameraLayer, PlayerAvatar, Mascot (placeholder), PraiseBurst, UiKit
-  scenes/                   Main, Idle, Supervisor (menu), Attract/Finish (free play), DevaTest, StatusOverlay
+  scenes/                   Main, Idle, Supervisor (menu), GamePicker (free play), DevaTest, StatusOverlay
   games/simon_says/         Simon Says
   games/bubble_pop/         Bubble Pop (fruit photos / numbers १–५)
   tests/                    SessionSmoke: headless session-flow test (./run.sh smoke)
@@ -157,7 +157,7 @@ to a dev-build game (`TAKATAK_BUILD=dev`; field builds stay on localhost).
    repeats the prompt. A second timeout gets an encouragement line and a gentle
    move on. Nothing on screen or in audio signals failure.
 5. If the child leaves for 3 s, the game pauses and the mascot calls them back.
-   After 60 s away the session says goodbye (free play: back to attract).
+   After 60 s away the session says goodbye (free play: back to the game picker).
 
 Language modes (centre profile `language_mode`, or `L` in dev builds):
 
@@ -182,7 +182,7 @@ Language modes (centre profile `language_mode`, or `L` in dev builds):
 
 The session plays it in the theme step for weeks 2 and 4. The demo default is week 3,
 whose games aren't built yet: pick week 2 or 4 in the supervisor menu to see Bubble Pop
-in a session. Free play (supervisor menu) plays Simon Says, then Bubble Pop.
+in a session, or pick it in "Choose a game" (free play).
 
 ## Voice
 
@@ -208,8 +208,18 @@ The session ends by itself. Step minutes scale to the centre's `session_minutes`
 A step whose game isn't built yet plays `fallback_game` (Simon Says). `content_lint`
 lists these steps. Daily cap: `max_sessions_per_day` (2) and `max_minutes_per_day` (40).
 When the cap is reached, start shows the mascot resting. The supervisor can lift the cap
-for today. The old attract/playlist flow is reachable only from the supervisor menu
-("Free play").
+for today. Each game opens with a 2.5 s title card (mr / hi / en) so everyone knows
+what's starting.
+
+### Choose a game (free play)
+
+Supervisor menu → "Choose a game (free play)". One card per built game across the top
+half of the screen. **Hold a hand on a card**: a gold ring fills around its picture
+(1.5 s) and the game starts. Moving away drains the ring, so nobody picks by accident.
+(The pose model has no finger points, so a fist/grab gesture isn't possible; holding
+the hand still is the select.) Single button: press = next card, hold 2 s = start,
+B = back. After a game, or B during one, it returns to the picker; B on the picker
+returns to the idle screen. Planned: a "children choose" step inside the session.
 
 ### Worker control
 
@@ -229,7 +239,7 @@ GPIO: set `gpio_button.enabled: true` and `pin` in `vision/config.yaml` (button 
 Supervisor PIN: `supervisor_pin` in `content/centre_profile.yaml` (default `1234`:
 change it per centre). Menu: week, language mode, main language, age group, session
 length, children at a time*, AI-literacy games*, lift today's limit, usage counts, export
-usage to USB, privacy screen, system status, free play. (*stored only; those features
+usage to USB, privacy screen, system status, choose a game (free play). (*stored only; those features
 are not built yet.)
 
 ### Weeks and centre profile (D4)

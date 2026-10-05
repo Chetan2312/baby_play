@@ -17,6 +17,7 @@ const UiKit = preload("res://core/UiKit.gd")
 const IDLE_SCENE := "res://scenes/Idle.tscn"
 const RESTART_MIN_S := 45.0
 const FORCE_AFTER_S := 60.0     # game ignored request_finish this long → stop it
+const TITLE_S := 2.5            # game title card before each new game
 const OVERRUN_S := 120.0        # past session_minutes by this much → straight to goodbye
 
 var st := St.IDLE
@@ -28,6 +29,7 @@ var segments: Array = []        # current game step: [{game, seconds, pack}]
 var seg_idx := -1
 var seg_deadline := 0.0
 var seg_finish_requested := false
+var _splash_active := false    # game title card showing: the step timer waits
 var _in_bridge := false        # bridge line before a game step: next skips only the line
 var started_at := 0.0
 var _gen := 0                   # bumped on every transition; stale awaits compare it
@@ -235,16 +237,39 @@ func _next_segment() -> void:
 	_launch()
 
 
-func _launch() -> void:
+## Start the current segment's game. title: show its name first (not when it restarts).
+func _launch(title := true) -> void:
 	seg_finish_requested = false
 	var seg: Dictionary = segments[seg_idx]
+	if title:
+		_splash_active = true
+		var gen := _gen
+		await _title_card(str(seg["game"]))
+		_splash_active = false
+		if gen != _gen:
+			return
 	if not GameManager.run_game(str(seg["game"]), {"pack": seg["pack"], "step": str(step.get("id", ""))}):
 		GameManager.overlay.toast("Game not available: " + str(seg["game"]))
 		_next_segment.call_deferred()
 
 
+## Big game name (mr / hi / en) in the centre for TITLE_S: says which game is starting.
+func _title_card(game_id: String) -> void:
+	GameManager.clear_screen()
+	var title: Dictionary = ContentDB.game(game_id).get("title", {})
+	var rows: Array = []
+	var langs := Settings.ordered_langs()
+	for i in langs.size():
+		rows.append([str(title.get(langs[i], game_id)), 110 if i == 0 else 70, UiKit.lang_color(langs[i])])
+	UiKit.center(GameManager.game_ui, UiKit.card(rows))
+	GameManager.mascot.go_spotlight()
+	GameManager.mascot.play("big_cheer", TITLE_S)
+	AudioDirector.sfx("whoosh")
+	await get_tree().create_timer(TITLE_S).timeout
+
+
 func _process(_delta: float) -> void:
-	if st != St.RUNNING or seg_idx < 0 or seg_idx >= segments.size():
+	if st != St.RUNNING or seg_idx < 0 or seg_idx >= segments.size() or _splash_active:
 		return
 	var now := _now()
 	if not seg_finish_requested and now >= seg_deadline:
@@ -259,7 +284,7 @@ func _on_game_done(_result: Dictionary) -> void:
 	if st != St.RUNNING or seg_idx < 0 or seg_idx >= segments.size():
 		return
 	if not seg_finish_requested and seg_deadline - _now() >= RESTART_MIN_S:
-		_launch()      # finished early: play again until the step's time is up
+		_launch(false)   # finished early: play again until the step's time is up
 	else:
 		_next_segment()
 

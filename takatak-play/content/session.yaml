@@ -1,11 +1,7 @@
-# Session flow timing (GameManager). Built to content/build/session.json.
-attract_detect_s: 1.0     # active player seen this long on the mat → greeting
+# Presence/pause timing (GameManager). Built to content/build/session.json.
 pause_after_s: 3.0        # player gone this long → pause, mascot calls them back
 resume_detect_s: 0.5
-abandon_s: 60.0           # paused this long → back to attract
-finish_s: 7.0
-attract_repeat_s: 25.0    # attract voice call interval
-sleep_after_s: 60.0       # nobody around → mascot sleeps
+abandon_s: 60.0           # paused this long → session: goodbye · free play: back to the game picker
 language_gap_s: 0.3       # pause between languages when a line is spoken in several
 name_chance: 0.33         # how often uses_name lines get the child's name clip
 duck_db: -12.0            # music ducking under voice

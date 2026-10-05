@@ -59,6 +59,14 @@ func tap_pointer() -> void:
 	await wait(0.2)
 
 
+## wait (≤ 5 s) for a game to be running after its title card
+func wait_game(gid: String) -> void:
+	for i in 25:
+		if GameManager.current_game_id == gid:
+			return
+		await wait(0.2)
+
+
 func step_id() -> String:
 	return str(SessionDirector.step.get("id", ""))
 
@@ -83,6 +91,8 @@ func _run() -> void:
 		if step_id() != "greet":
 			break
 		await wait()
+	check(step_id() == "warmup" and GameManager.current_game_id == "", "warm-up starts with the game's title card")
+	await wait_game("simon_says")
 	check(step_id() == "warmup" and GameManager.current_game_id == "simon_says", "greet ends by itself → warm-up Simon Says")
 	sd.seg_deadline = sd._now() - 1.0
 	await wait()
@@ -163,7 +173,7 @@ func _run() -> void:
 	games = sd.segments.map(func(x): return x["game"])
 	check(games == ["simon_says", "bubble_pop"], "week 2 → fallback + bubble_pop (got %s)" % str(games))
 	sd._next_segment()
-	await wait(0.3)
+	await wait_game("bubble_pop")
 	var bp = GameManager.current_game
 	check(GameManager.current_game_id == "bubble_pop" and bp.pack == "local_fruits", "bubble pop with the fruit pack")
 	for i in 30:
@@ -179,5 +189,39 @@ func _run() -> void:
 	check(bp.successes == 1 and bp.st == bp.St.CELEBRATE, "popping the asked bubble wins the round")
 	await press("supervisor")
 	await press("back", 0.3)
+	# free play: "Choose a game" — hand dwell picks, buttons move/start/back
+	await press("supervisor")
+	sup = GameManager._supervisor
+	for d in [1, 2, 3, 4]:
+		for i in d:
+			InputRouter.fire("next")
+		await press("select", 0.1)
+	for i in 12:
+		InputRouter.fire("next")
+	await press("select", 0.3)   # item 12: choose a game (free play)
+	var picker = GameManager.current
+	check(GameManager.mode == "free_play" and picker != null and "games" in picker, "free play opens the game picker")
+	check(picker.games == ["simon_says", "bubble_pop"], "picker lists the built games (got %s)" % str(picker.games))
+	var rects: Array = picker.card_rects()
+	picker.fake_hands = [{"pos": (rects[1] as Rect2).get_center(), "radius": 40.0}]
+	await wait(0.8)
+	check(picker.dwell[1] > 0.2 and picker.dwell[0] == 0.0, "hand on a card fills its ring")
+	picker.fake_hands = [{"pos": Vector2(5, 5), "radius": 40.0}]
+	await wait(0.6)
+	check(picker.dwell[1] < 0.2, "moving away drains the ring")
+	picker.fake_hands = [{"pos": (rects[1] as Rect2).get_center(), "radius": 40.0}]
+	await wait_game("bubble_pop")
+	check(GameManager.current_game_id == "bubble_pop", "full ring starts that game")
+	await press("back", 0.4)
+	picker = GameManager.current
+	check("games" in picker, "back from a game → picker")
+	await press("next", 0.1)
+	check(picker.sel == 0, "button moves the highlight (wraps)")
+	await press("long")
+	await wait_game("simon_says")
+	check(GameManager.current_game_id == "simon_says", "long press starts the highlighted game")
+	await press("back", 0.4)
+	await press("back", 0.4)
+	check(GameManager.mode == "session" and idle_variant() == "ready", "back from the picker → idle")
 	Centre.set_value("current_week", 3)
 	Centre.set_value("max_sessions_per_day", 2)
