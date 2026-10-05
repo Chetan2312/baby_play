@@ -12,6 +12,11 @@ logs/*
 # model binaries (vision/tools/fetch_model.sh)
 vision/models/*.hef
 vision/models/*.part
+vision/models/*/*.hef
+vision/models/*/*.part
+
+# packaged field builds (tools/make_field_build.py)
+dist/
 
 # generated content (./run.sh content)
 content/build/

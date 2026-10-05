@@ -1,5 +1,5 @@
 ; Engine configuration file.
-; Takatak Play — Godot 4 game client (Phase 2). Renderer: Compatibility (GLES3) for the Pi 5.
+; Takatak Play — Godot 4 game client (Phase 2 + anganwadi demo build). Renderer: Compatibility (GLES3) for the Pi 5.
 
 config_version=5
 
@@ -15,10 +15,13 @@ run/max_fps=60
 
 Settings="*res://autoload/Settings.gd"
 ContentDB="*res://autoload/ContentDB.gd"
+Centre="*res://autoload/Centre.gd"
 VisionClient="*res://autoload/VisionClient.gd"
 AudioDirector="*res://autoload/AudioDirector.gd"
 Stats="*res://autoload/Stats.gd"
+InputRouter="*res://autoload/InputRouter.gd"
 GameManager="*res://autoload/GameManager.gd"
+SessionDirector="*res://autoload/SessionDirector.gd"
 
 [display]
 

@@ -1,4 +1,4 @@
-"""Hailo-8 YOLOv8-pose inference thread.
+"""Hailo YOLOv8-pose inference thread (Hailo-8 dev rig; Hailo-10H kit, HEF per profile).
 
 Uses picamera2.devices.Hailo like picamera2 examples/hailo/pose_estimation.py.
 The lores frame is letterboxed into the model input (no resize when the lores
@@ -37,9 +37,10 @@ class PoseEngine:
             if "OUT_OF_PHYSICAL_DEVICES" in str(e) or "not enough free devices" in str(e):
                 raise PoseError("Hailo AI HAT is busy: another program is using it "
                                 "(old vision service? pkill -INT -f takatak_vision.main)") from e
+            accel = cfg.get("profile", {}).get("accelerator", "hailo8")
             raise PoseError(f"Hailo could not load the model: {e}. "
                             "Check the AI HAT (hailortcli fw-control identify) and that the HEF "
-                            "is compiled for Hailo-8, not Hailo-8L.") from e
+                            f"is compiled for {accel} (profile '{cfg.get('profile', {}).get('name', '?')}').") from e
         self.inf = cfg["inference"]
         h, w, _ = self.hailo.get_input_shape()
         self.input_hw = (h, w)

@@ -47,6 +47,10 @@ def test_end_to_end_with_mock():
         async with websockets.connect(url, max_size=2 ** 22) as ws:
             hello = await recv_until(ws, lambda m: isinstance(m, dict))
             assert hello["t"] == "hello" and hello["version"] == P.VERSION and hello["mirror"]
+            assert hello["hardware"]["profile"] == "mock"
+            server.button_threadsafe("down")   # GPIO thread → every client
+            btn = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "button")
+            assert btn["state"] == "down"
             await ws.send(json.dumps({"t": "subscribe", "frames": True}))
             pose = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "pose")
             assert pose["people"] and pose["people"][0]["active"]

@@ -18,9 +18,22 @@ def test_binary_roundtrip():
 
 def test_every_message_has_type_and_ts():
     for m in (P.hello("wide", ["pose"], False), P.pose(1, []), P.gesture(3, "clap", "held", 0.9),
-              P.status({"cam": 30}, 61.2), P.no_player(3.2), P.pong(), P.error("x")):
+              P.status({"cam": 30}, 61.2), P.no_player(3.2), P.button("down"), P.pong(), P.error("x")):
         d = json.loads(P.dumps(m))
         assert d["t"] in P.VISION_TYPES and isinstance(d["ts"], int)
+
+
+def test_hello_carries_hardware():
+    hw = {"profile": "devrig", "accelerator": "hailo8", "cameras": ["imx708_wide"], "network": "offline"}
+    d = json.loads(P.dumps(P.hello("wide", ["pose"], False, hardware=hw)))
+    assert d["hardware"] == hw
+    assert json.loads(P.dumps(P.hello("wide", [], False)))["hardware"] == {}
+
+
+def test_button_rejects_bad_state():
+    assert P.button("up")["state"] == "up"
+    with pytest.raises(P.ProtocolError):
+        P.button("pressed")
 
 
 def test_gesture_rejects_bad_state():
@@ -52,6 +65,7 @@ def test_person_wire_keeps_anatomical_names():
      {"t": "subscribe", "frames": False, "mask": False, "loudness": False, "motion": ["hop"]}),
     ('{"t":"set_players","mode":"duo"}', {"t": "set_players", "mode": "duo"}),
     ('{"t":"set_camera","camera":"noir"}', {"t": "set_camera", "camera": "noir"}),
+    ('{"t":"set_camera","camera":"imx500"}', {"t": "set_camera", "camera": "imx500"}),
     ('{"t":"set_difficulty","difficulty":"kid"}', {"t": "set_difficulty", "difficulty": "kid"}),
     ('{"t":"mic_listen_start","purpose":"echo","max_s":3}',
      {"t": "mic_listen_start", "purpose": "echo", "max_s": 3.0}),

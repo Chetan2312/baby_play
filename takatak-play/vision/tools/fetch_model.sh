@@ -1,13 +1,39 @@
 #!/usr/bin/env bash
-# Put a Hailo-8 (NOT 8L) yolov8s_pose.hef into models/.
+# Put a yolov8s_pose.hef for the hardware profile's accelerator into models/<accel>/.
+#   PROFILE=devrig (default) → models/hailo8/   Hailo-8 (NOT 8L), AI HAT+ 26 TOPS
+#   PROFILE=kit              → models/hailo10h/ Hailo-10H, AI HAT+ 2 (manual: see below)
+# Hailo-8 steps:
 #  1. already there → verify
-#  2. copy from /usr/share/hailo-models (apt hailo-models, version-matched)
-#  3. download from the Hailo Model Zoo, matched to the installed HailoRT
-# Override: HEF_URL=https://... tools/fetch_model.sh   or copy a file to models/ yourself.
+#  2. an old models/yolov8s_pose.hef (pre-profile layout) → move it
+#  3. copy from /usr/share/hailo-models (apt hailo-models, version-matched)
+#  4. download from the Hailo Model Zoo, matched to the installed HailoRT
+# Override: HEF_URL=https://... tools/fetch_model.sh   or copy a file there yourself.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-OUT=models/yolov8s_pose.hef
-mkdir -p models
+PROFILE="${PROFILE:-devrig}"
+if [[ "$PROFILE" == "kit" ]]; then
+  OUT=models/hailo10h/yolov8s_pose.hef
+  mkdir -p models/hailo10h
+  if [[ -f "$OUT" ]]; then
+    echo "$OUT exists"
+    if command -v hailortcli >/dev/null; then hailortcli parse-hef "$OUT" 2>&1 | head -5 || true; fi
+    exit 0
+  fi
+  if [[ -n "${HEF_URL:-}" ]] && curl -fL --retry 2 -o "$OUT.part" "$HEF_URL"; then
+    mv "$OUT.part" "$OUT"; exit 0
+  fi
+  echo "!! No Hailo-10H HEF yet. Hailo-8 HEFs do NOT run on the Hailo-10H."
+  echo "   Get yolov8s_pose compiled for hailo10h (Hailo Model Zoo, matched to the installed"
+  echo "   HailoRT: $(hailortcli --version 2>/dev/null || echo '?')) and copy it to $OUT,"
+  echo "   or rerun with HEF_URL=... . Record the source and version in docs/model_matrix.md."
+  exit 1
+fi
+OUT=models/hailo8/yolov8s_pose.hef
+mkdir -p models/hailo8
+if [[ ! -f "$OUT" && -f models/yolov8s_pose.hef ]]; then
+  echo "moving models/yolov8s_pose.hef → $OUT (per-profile layout)"
+  mv models/yolov8s_pose.hef "$OUT"
+fi
 
 verify() {
   if ! command -v hailortcli >/dev/null; then

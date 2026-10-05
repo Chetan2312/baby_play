@@ -51,7 +51,7 @@ if [[ $SKIP_APT -eq 0 ]]; then
       if apt-cache show "$p" >/dev/null 2>&1; then hailo_pkg=$p; break; fi
     done
     [[ -n "$hailo_pkg" ]] || warn "No hailo-all package in apt; see the Raspberry Pi AI HAT+ docs for your OS."
-    pkgs+=($hailo_pkg dkms python3-picamera2 python3-simplejpeg)
+    pkgs+=($hailo_pkg dkms python3-picamera2 python3-simplejpeg python3-gpiozero)
   fi
   sudo apt install -y "${pkgs[@]}"
 fi
@@ -72,11 +72,19 @@ say "Python venv ($VENV_DIR)"
 "$VENV_DIR/bin/python" -m pip install --upgrade pip >/dev/null
 "$VENV_DIR/bin/python" -m pip install -r vision/requirements.txt
 
-mkdir -p logs vision/models content/names
+mkdir -p logs vision/models/hailo8 vision/models/hailo10h content/names
+
+say "Runtime folders (usage counters on disk, voice temp files in RAM)"
+# Anonymous usage counters (game: Stats.gd). Falls back to user:// if this is missing.
+sudo install -d -o "$(id -u)" -g "$(id -g)" /var/lib/takatak/usage || warn "could not create /var/lib/takatak/usage"
+# /run is tmpfs: echo/voice temp files never touch the SSD. Recreated on every boot.
+echo "d /run/takatak 0700 $(id -un) $(id -gn) -" | sudo tee /etc/tmpfiles.d/takatak.conf >/dev/null \
+  && sudo systemd-tmpfiles --create /etc/tmpfiles.d/takatak.conf || warn "could not set up /run/takatak"
 
 if [[ $IS_PI -eq 1 ]]; then
-  say "Pose model (Hailo-8 yolov8s_pose.hef)"
-  vision/tools/fetch_model.sh || warn "Model step failed. Fix it before running the vision service."
+  PROFILE=$("$VENV_DIR/bin/python" -c "import sys; sys.path.insert(0, 'vision'); from takatak_vision.config import load_config; print(load_config()['profile']['name'])" 2>/dev/null || echo devrig)
+  say "Pose model for profile '$PROFILE' (yolov8s_pose.hef)"
+  PROFILE=$PROFILE vision/tools/fetch_model.sh || warn "Model step failed. Fix it before running the vision service."
 fi
 
 if [[ $WITH_GODOT -eq 1 ]]; then

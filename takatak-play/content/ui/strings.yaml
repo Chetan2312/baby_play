@@ -1,0 +1,65 @@
+# On-screen text for the worker/supervisor (idle screen, supervisor menu, privacy and
+# status screens). Marathi + English. DRAFT: reviewed: false until a native Marathi
+# speaker has checked it (content_lint --list-unreviewed). Built to content/build/ui.json.
+idle_hint:            {mr: "सुरू करण्यासाठी ▶ बटण दाबा", en: "Press ▶ to start", reviewed: false}
+idle_week:            {mr: "या आठवड्याचा विषय", en: "This week", reviewed: false}
+rest_title:           {mr: "आजचा खेळ पूर्ण! उद्या भेटूया", en: "Done for today! See you tomorrow", reviewed: false}
+
+sup_title:            {mr: "पर्यवेक्षक मेनू", en: "Supervisor menu", reviewed: false}
+sup_help:             {mr: "खाली/वर = निवडा · F5 किंवा लांब दाब = ठीक · B = मागे", en: "Down/Up = move · F5 or long press = OK · B = back", reviewed: false}
+pin_title:            {mr: "पिन टाका", en: "Enter PIN", reviewed: false}
+pin_help:             {mr: "खाली/वर = अंक बदला · F5 किंवा लांब दाब = पुढे", en: "Down/Up = change digit · F5 or long press = next", reviewed: false}
+pin_wrong:            {mr: "चुकीचा पिन", en: "Wrong PIN", reviewed: false}
+
+item_week:            {mr: "आठवडा", en: "Week", reviewed: false}
+item_language_mode:   {mr: "भाषा पद्धत", en: "Language mode", reviewed: false}
+item_primary_language: {mr: "मुख्य भाषा", en: "Main language", reviewed: false}
+item_difficulty:      {mr: "वयोगट", en: "Age group", reviewed: false}
+item_session_minutes: {mr: "सत्राची वेळ (मिनिटे)", en: "Session length (min)", reviewed: false}
+item_slots:           {mr: "एका वेळी मुले", en: "Children at a time", reviewed: false}
+item_ai_literacy:     {mr: "AI ओळख खेळ", en: "AI-literacy games", reviewed: false}
+item_cap_override:    {mr: "आजची मर्यादा उठवा", en: "Lift today's limit", reviewed: false}
+item_usage:           {mr: "वापराची आकडेवारी", en: "Usage counts", reviewed: false}
+item_export:          {mr: "आकडेवारी USB वर", en: "Export usage to USB", reviewed: false}
+item_privacy:         {mr: "गोपनीयता", en: "Privacy", reviewed: false}
+item_status:          {mr: "यंत्रणा स्थिती", en: "System status", reviewed: false}
+item_free_play:       {mr: "मुक्त खेळ (जुनी पद्धत)", en: "Free play (old flow)", reviewed: false}
+item_exit:            {mr: "बाहेर पडा", en: "Exit", reviewed: false}
+
+val_mr_first:         {mr: "मराठी प्रथम", en: "Marathi first", reviewed: false}
+val_all_three:        {mr: "तिन्ही भाषा", en: "All three", reviewed: false}
+val_single:           {mr: "एकच भाषा", en: "Single language", reviewed: false}
+val_toddler:          {mr: "३–४ वर्षे", en: "3–4 years", reviewed: false}
+val_kid:              {mr: "५–६ वर्षे", en: "5–6 years", reviewed: false}
+val_on:               {mr: "चालू", en: "On", reviewed: false}
+val_off:              {mr: "बंद", en: "Off", reviewed: false}
+val_not_built:        {mr: "(अजून तयार नाही)", en: "(not built yet)", reviewed: false}
+lang_mr:              {mr: "मराठी", en: "Marathi", reviewed: false}
+lang_hi:              {mr: "हिंदी", en: "Hindi", reviewed: false}
+lang_en:              {mr: "इंग्रजी", en: "English", reviewed: false}
+
+cap_lifted:           {mr: "आजची मर्यादा उठवली", en: "Today's limit lifted", reviewed: false}
+export_ok:            {mr: "USB वर जतन केले", en: "Saved to USB", reviewed: false}
+export_no_usb:        {mr: "USB सापडला नाही", en: "No USB stick found", reviewed: false}
+
+usage_title:          {mr: "वापराची आकडेवारी", en: "Usage counts", reviewed: false}
+usage_today:          {mr: "आज", en: "Today", reviewed: false}
+usage_month:          {mr: "या महिन्यात", en: "This month", reviewed: false}
+usage_sessions:       {mr: "सत्रे", en: "Sessions", reviewed: false}
+usage_minutes:        {mr: "मिनिटे", en: "Minutes", reviewed: false}
+usage_movement:       {mr: "हालचालीची मिनिटे", en: "Movement minutes", reviewed: false}
+usage_rounds:         {mr: "फेऱ्या", en: "Rounds", reviewed: false}
+usage_successes:      {mr: "यशस्वी फेऱ्या", en: "Successful rounds", reviewed: false}
+usage_note:           {mr: "फक्त आकडे: नाव, फोटो किंवा आवाज नाही", en: "Counts only: no names, photos or voices", reviewed: false}
+
+privacy_title:        {mr: "मुलांची गोपनीयता", en: "Children's privacy", reviewed: false}
+privacy_1:            {mr: "कॅमेरा फक्त आकार आणि ठिपके पाहतो, मूल कोण आहे ते नाही", en: "The camera sees shapes and dots, not who the child is", reviewed: false}
+privacy_2:            {mr: "काहीही रेकॉर्ड किंवा जतन होत नाही", en: "Nothing is recorded or saved", reviewed: false}
+privacy_3:            {mr: "इंटरनेट नाही: काहीही बाहेर जात नाही", en: "No internet: nothing leaves this box", reviewed: false}
+privacy_4:            {mr: "फक्त वर्ग किती खेळला याचे आकडे", en: "Only counts of how much the class played", reviewed: false}
+
+status_title:         {mr: "यंत्रणा स्थिती", en: "System status", reviewed: false}
+back_hint:            {mr: "B = मागे", en: "B = back", reviewed: false}
+clock_unknown:        {mr: "तारीख माहीत नाही", en: "date unknown", reviewed: false}
+net_offline:          {mr: "ऑफलाइन", en: "Offline", reviewed: false}
+net_online:           {mr: "ऑनलाइन", en: "Online", reviewed: false}

@@ -6,6 +6,7 @@ one with the same attributes, so the server code is identical in both.
 import time
 
 from .analysis import Analyzer
+from .button import GpioButton
 from .camera import CameraThread, VideoThread, lores_size_for
 from .config import path
 from .encoder import FrameEncoder
@@ -24,8 +25,11 @@ def read_temp_c():
 class HardwareSource:
     mic = False   # Phase P5
 
-    def __init__(self, cfg, video=None):
+    def __init__(self, cfg, video=None, hardware=None):
         self.cfg = cfg
+        self.hardware = dict(hardware or {})   # boot probe (hardware.probe) for hello
+        self.on_button = None                  # set by VisionServer
+        self.button = GpioButton(cfg, self._button)
         scfg = cfg["server"]
         self.mirror = cfg["display"]["mirror"]
         self.perf = PerfLog(path(cfg["paths"]["perf_log"]), cfg["perf"]["log_every_s"])
@@ -50,9 +54,13 @@ class HardwareSource:
     def models(self):
         return [] if self.inf.error else ["pose"]
 
+    def _button(self, state):
+        if self.on_button is not None:
+            self.on_button(state)
+
     def errors(self):
-        out = []
-        for src in (self.cam, self.inf):
+        out = list(self.hardware.get("errors", []))
+        for src in (self.cam, self.inf, self.button):
             if src.error:
                 out.append(src.error)
         return out
@@ -60,8 +68,10 @@ class HardwareSource:
     def start(self):
         for t in (self.cam, self.inf, self.enc):
             t.start()
+        self.button.start()
 
     def stop(self):
+        self.button.stop()
         for t in (self.cam, self.inf, self.enc):
             t.stop()
         for t in (self.cam, self.inf, self.enc):

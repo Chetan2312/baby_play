@@ -5,10 +5,17 @@ Errors (exit 1):
   - a line_id/variant missing one of mr/hi/en, empty text, unknown category
   - a game references an unknown line, or a prompt check the vision service doesn't know
   - manifest points at a missing voice file
-  - draft voice files present with --release
+  - a session step with an unknown line/type, a missing fallback game or bridge lines
+  - a week without mr/hi/en title or games, duplicate week numbers
+  - a centre profile value out of range (language mode, week, session, minutes, slots, PIN …)
+  - a UI string missing mr/en
+  - with --release: draft voice files, and any text not reviewed by a native speaker
 Warnings:
   - no voice file yet for a line (errors with --strict-audio)
   - fewer praise/encourage variants than the brief asks for
+  - a session/week game that isn't built yet (the session plays the fallback game)
+  - Aadharshila references still TODO
+  - text not reviewed yet (reviewed: false); --list-unreviewed prints every one
 """
 import argparse
 import os
@@ -17,10 +24,138 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vision"))
 
-from content_common import (CATEGORIES, CONTENT, LANGS, read_games, read_lines,  # noqa: E402
-                            read_manifest, voice_key)
+from content_common import (CATEGORIES, CONTENT, LANGS, read_centre_profile, read_games,  # noqa: E402
+                            read_lines, read_manifest, read_sessions, read_ui_strings, read_weeks,
+                            voice_key)
 
 MIN_POOL = {"praise": 25, "encourage": 15}
+STEP_TYPES = ("game", "mascot_line")
+LANGUAGE_MODES = ("mr_first", "all_three", "single")
+DIFFICULTIES = ("toddler", "kid")
+SPONSORS = ("none", "cummins_foundation")
+UI_LANGS = ("mr", "en")
+
+
+def lint_sessions(sessions, lines, games):
+    errors, warnings = [], []
+    for sid, sess in sessions.items():
+        fb = sess.get("fallback_game")
+        if fb not in games:
+            errors.append(f"session {sid}: fallback_game {fb!r} is not a built game")
+        prefix = sess.get("bridge_prefix")
+        if prefix and not any(lid.startswith(prefix) for lid in lines):
+            errors.append(f"session {sid}: no lines with bridge_prefix {prefix!r}")
+        total = 0.0
+        ids = set()
+        for i, st in enumerate(sess.get("steps", [])):
+            sid_ = st.get("id") or f"#{i + 1}"
+            if sid_ in ids:
+                errors.append(f"session {sid}: duplicate step id {sid_!r}")
+            ids.add(sid_)
+            kind = st.get("type", "game")
+            if kind not in STEP_TYPES:
+                errors.append(f"session {sid} step {sid_}: unknown type {kind!r}")
+            elif kind == "mascot_line":
+                if st.get("line") not in lines:
+                    errors.append(f"session {sid} step {sid_}: unknown line {st.get('line')!r}")
+                if st.get("then") not in (None, "end_session"):
+                    errors.append(f"session {sid} step {sid_}: unknown then {st.get('then')!r}")
+            else:
+                g = st.get("game")
+                if not g:
+                    errors.append(f"session {sid} step {sid_}: no game")
+                elif g != "from_week" and g not in games:
+                    warnings.append(f"session {sid} step {sid_}: game {g!r} not built yet (plays {fb})")
+                m = st.get("minutes")
+                if not isinstance(m, (int, float)) or m <= 0:
+                    errors.append(f"session {sid} step {sid_}: minutes must be > 0")
+                else:
+                    total += m
+        tm = sess.get("total_minutes", 0)
+        if not 12 <= tm <= 20:
+            warnings.append(f"session {sid}: total_minutes {tm} outside 12–20")
+        if total > tm:
+            warnings.append(f"session {sid}: game steps add up to {total} min > total_minutes {tm}")
+    return errors, warnings
+
+
+def lint_weeks(weeks, games):
+    errors, warnings = [], []
+    seen = set()
+    for w in weeks:
+        n = w.get("week")
+        tag = f"week {n}"
+        if not isinstance(n, int) or n < 1:
+            errors.append(f"{tag}: week must be a positive integer")
+        elif n in seen:
+            errors.append(f"{tag}: duplicate week number")
+        seen.add(n)
+        for lang in LANGS:
+            if not (w.get("title") or {}).get(lang):
+                errors.append(f"{tag}: title missing {lang}")
+        if not w.get("theme_id"):
+            errors.append(f"{tag}: no theme_id")
+        if not w.get("games"):
+            errors.append(f"{tag}: no games")
+        for g in w.get("games") or []:
+            if g not in games:
+                warnings.append(f"{tag} ({w.get('theme_id')}): game {g!r} not built yet")
+        if "TODO" in str(w.get("aadharshila_ref", "TODO")):
+            warnings.append(f"{tag} ({w.get('theme_id')}): aadharshila_ref is TODO "
+                            "(fill from the Aadharshila document; never invent it)")
+    return errors, warnings
+
+
+def lint_centre(c, weeks, sessions):
+    errors = []
+
+    def bad(k, why):
+        errors.append(f"centre_profile: {k} {c.get(k)!r} {why}")
+
+    if c.get("language_mode") not in LANGUAGE_MODES:
+        bad("language_mode", f"must be one of {LANGUAGE_MODES}")
+    if c.get("primary_language") not in LANGS:
+        bad("primary_language", f"must be one of {LANGS}")
+    if c.get("difficulty") not in DIFFICULTIES:
+        bad("difficulty", f"must be one of {DIFFICULTIES}")
+    if c.get("session") not in sessions:
+        bad("session", "is not a session in content/sessions/")
+    if not isinstance(c.get("session_minutes"), (int, float)) or not 12 <= c["session_minutes"] <= 20:
+        bad("session_minutes", "must be 12–20")
+    if not isinstance(c.get("slots"), int) or not 1 <= c["slots"] <= 4:
+        bad("slots", "must be 1–4")
+    if c.get("current_week") not in {w.get("week") for w in weeks}:
+        bad("current_week", "is not in curriculum/weeks.yaml")
+    if not isinstance(c.get("ai_literacy_enabled"), bool):
+        bad("ai_literacy_enabled", "must be true/false")
+    if c.get("sponsor_branding") not in SPONSORS:
+        bad("sponsor_branding", f"must be one of {SPONSORS}")
+    for k in ("max_sessions_per_day", "max_minutes_per_day"):
+        if not isinstance(c.get(k), int) or c[k] < 1:
+            bad(k, "must be a positive integer")
+    pin = c.get("supervisor_pin")
+    if not (isinstance(pin, str) and len(pin) == 4 and pin.isdigit()):
+        bad("supervisor_pin", "must be a quoted 4-digit string")
+    return errors
+
+
+def lint_ui(ui):
+    errors = []
+    for k, v in ui.items():
+        for lang in UI_LANGS:
+            if not isinstance(v, dict) or not v.get(lang):
+                errors.append(f"ui string {k}: missing {lang}")
+    return errors
+
+
+def unreviewed():
+    """Every piece of text a native speaker hasn't checked yet: [(kind, id)]."""
+    out = [("line", lid) for lid, e in read_lines().items() if not e.get("reviewed")]
+    out += [("week title", f"week {w.get('week')} {w.get('theme_id')}") for w in read_weeks()
+            if not w.get("reviewed", False)]
+    out += [("ui string", k) for k, v in read_ui_strings().items()
+            if not (isinstance(v, dict) and v.get("reviewed", False))]
+    return out
 
 
 def lint(strict_audio=False, release=False):
@@ -63,6 +198,23 @@ def lint(strict_audio=False, release=False):
                 if p.get("check") and p["check"] not in CHECKS:
                     errors.append(f"game {gid}: prompt {p['id']} has unknown check {p['check']!r}")
 
+    games = read_games()
+    sessions, weeks = read_sessions(), read_weeks()
+    for e, w in (lint_sessions(sessions, lines, games), lint_weeks(weeks, games)):
+        errors += e
+        warnings += w
+    errors += lint_centre(read_centre_profile(), weeks, sessions)
+    errors += lint_ui(read_ui_strings())
+    todo = unreviewed()
+    if todo:
+        kinds = {}
+        for k, _ in todo:
+            kinds[k] = kinds.get(k, 0) + 1
+        msg = ("not reviewed by a native speaker: "
+               + ", ".join(f"{n} {k}{'s' if n > 1 else ''}" for k, n in kinds.items())
+               + " (--list-unreviewed)")
+        (errors if release else warnings).append(msg)
+
     manifest = read_manifest()
     missing_audio = 0
     for lid, e in lines.items():
@@ -85,8 +237,14 @@ def lint(strict_audio=False, release=False):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--strict-audio", action="store_true")
-    ap.add_argument("--release", action="store_true", help="also fail on draft voices")
+    ap.add_argument("--release", action="store_true",
+                    help="also fail on draft voices and unreviewed text")
+    ap.add_argument("--list-unreviewed", action="store_true",
+                    help="print every line, week title and UI string still marked reviewed: false")
     args = ap.parse_args()
+    if args.list_unreviewed:
+        for kind, ident in unreviewed():
+            print(f"unreviewed {kind}: {ident}")
     errors, warnings = lint(args.strict_audio, args.release)
     for w in warnings:
         print("warning:", w)

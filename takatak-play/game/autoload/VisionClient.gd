@@ -14,6 +14,7 @@ signal echo_ready(path: String, duration: float)
 signal keyword(word: String, lang: String, conf: float)
 signal status_received(info: Dictionary)
 signal no_player(seconds: float)
+signal button(state: String)          # GPIO worker button edge: "down" | "up" (InputRouter)
 signal frame_received(texture: Texture2D)
 signal mask_received(texture: Texture2D)
 signal protocol_error(text: String)
@@ -27,6 +28,7 @@ const DEFAULT_FRAME_SIZE := Vector2(960, 540)
 var ws: WebSocketPeer = null
 var is_open := false
 var info := {}
+var hardware := {}     # hello.hardware: boot probe for the status screen
 var people: Array = []
 var active_people: Array = []
 var last_status := {}
@@ -113,6 +115,7 @@ func _handle(msg: Dictionary) -> void:
 	match t:
 		"hello":
 			info = msg
+			hardware = msg.get("hardware", {})
 			if int(msg.get("version", 0)) != PROTOCOL_VERSION:
 				protocol_error.emit("vision protocol v%s, game expects v%d" % [str(msg.get("version")), PROTOCOL_VERSION])
 			hello_received.emit(msg)
@@ -140,6 +143,8 @@ func _handle(msg: Dictionary) -> void:
 			status_received.emit(msg)
 		"no_player":
 			no_player.emit(float(msg.get("seconds", 0.0)))
+		"button":
+			button.emit(str(msg.get("state", "")))
 		"error":
 			protocol_error.emit(str(msg.get("text", "")))
 		"pong":

@@ -1,4 +1,4 @@
-"""Vision service entry point: python -m takatak_vision.main [--camera noir] [--video clip.mp4]"""
+"""Vision service entry point: python -m takatak_vision.main [--profile kit] [--camera noir] [--video clip.mp4]"""
 import argparse
 import asyncio
 import signal
@@ -7,7 +7,8 @@ import subprocess
 import sys
 import traceback
 
-from .config import load_config
+from . import build, hardware
+from .config import PROFILES, load_config
 from .lifecycle import Shutdown
 from .pipeline import HardwareSource
 from .server import VisionServer
@@ -16,7 +17,8 @@ from .server import VisionServer
 def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="Takatak vision service (WebSocket, no UI)")
     ap.add_argument("--config", default="config.yaml")
-    ap.add_argument("--camera", choices=["wide", "noir", "auto"])
+    ap.add_argument("--profile", choices=PROFILES, help="override hardware.profile")
+    ap.add_argument("--camera", choices=["wide", "noir", "imx500", "auto"])
     ap.add_argument("--port", type=int)
     ap.add_argument("--host")
     ap.add_argument("--video", help="DEV ONLY: recorded clip instead of the camera")
@@ -55,7 +57,9 @@ def other_instances():
 
 def main(argv=None):
     args = parse_args(argv)
-    cfg = load_config(args.config)
+    if args.video:
+        build.require_dev("--video")
+    cfg = load_config(args.config, args.profile)
     if args.camera:
         cfg["camera"] = args.camera
     if args.port:
@@ -74,7 +78,12 @@ def main(argv=None):
         print("    pkill -INT -f takatak_vision.main")
         sys.exit(1)
     shutdown = Shutdown()  # second Ctrl+C / stuck cleanup → hard exit
-    source = HardwareSource(cfg, args.video)
+    hw = hardware.probe(cfg)   # before the pose engine opens the Hailo device
+    print(f"[boot] build={build.current()} model={cfg['model']} camera={cfg['camera']}")
+    print(hardware.format_boot_log(hw))
+    for e in hw["errors"] + ([hw["model_note"]] if hw.get("model_note") else []):
+        print(f"[boot] {e}")
+    source = HardwareSource(cfg, args.video, hw)
     source.start()
     code = 0
     try:

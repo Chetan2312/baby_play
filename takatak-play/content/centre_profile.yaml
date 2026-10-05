@@ -1,0 +1,15 @@
+# Per-centre defaults. The supervisor menu edits these on the kit (saved on the device,
+# on top of this file). Built to content/build/centre_profile.json.
+centre_name: "Demo Centre"          # shown only on the supervisor screen
+language_mode: mr_first             # mr_first | all_three | single
+primary_language: mr                # spoken language for mr_first/single (mr | hi | en)
+difficulty: toddler                 # toddler (3–4) | kid (5–6)
+session: standard_v1
+session_minutes: 18                 # 12–20
+slots: 3                            # group play 1–4 (stored; group play is not built yet)
+current_week: 3
+ai_literacy_enabled: true           # stored; the AI-literacy games are not built yet
+sponsor_branding: none              # none | cummins_foundation (only with written permission)
+max_sessions_per_day: 2
+max_minutes_per_day: 40
+supervisor_pin: "1234"              # 4 digits, entered with the remote. Change it per centre.

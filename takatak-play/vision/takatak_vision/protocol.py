@@ -27,12 +27,13 @@ GESTURE_NAMES = tuple(CHECKS) + ("neutral",)
 MOTION_NAMES = ("hop", "flap", "stomp", "run_on_spot", "freeze", "wave", "crouch",
                 "crawl_low", "jump")
 PLAYER_MODES = ("single", "duo")
-CAMERAS = ("wide", "noir", "auto")
+CAMERAS = ("wide", "noir", "imx500", "auto")
 DIFFICULTIES = ("toddler", "kid")
+BUTTON_STATES = ("down", "up")
 
 # vision → game
 VISION_TYPES = ("hello", "pose", "gesture", "motion", "loudness", "echo_ready", "keyword",
-                "status", "no_player", "pong", "error")
+                "status", "no_player", "button", "pong", "error")
 # game → vision ("set_difficulty" picks static gesture tolerances; "mock_expect" is
 # honoured only by tools/mock_server.py so games can be built without a camera)
 GAME_TYPES = ("subscribe", "set_players", "set_camera", "set_difficulty",
@@ -97,9 +98,10 @@ def person_to_wire(pid, active, conf, bbox, kp, scale_px, frame_w, frame_h, mirr
 
 
 # ---- vision → game builders ----------------------------------------------
-def hello(camera, models, mic, errors=(), mirror=True):
+def hello(camera, models, mic, errors=(), mirror=True, hardware=None):
+    """hardware: boot probe for the status screen (hardware.probe), {} when unknown."""
     return message("hello", version=VERSION, camera=camera, models=list(models), mic=bool(mic),
-                   mirror=bool(mirror), errors=list(errors))
+                   mirror=bool(mirror), errors=list(errors), hardware=dict(hardware or {}))
 
 
 def pose(frame_id, people, ts=None):
@@ -121,6 +123,13 @@ def status(fps, temp_c=None, errors=(), camera=None):
 
 def no_player(seconds):
     return message("no_player", seconds=round(float(seconds), 2))
+
+
+def button(state):
+    """GPIO worker button edge. The game's InputRouter turns edges into short/long presses."""
+    if state not in BUTTON_STATES:
+        raise ProtocolError(f"bad button state {state!r}")
+    return message("button", state=state)
 
 
 def pong():

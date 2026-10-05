@@ -10,13 +10,24 @@
 #   ./run.sh clip [args]      DEV ONLY: record a video clip (needs --i-have-consent)
 #   ./run.sh content          draft voices → OGG → build JSON → lint
 #   ./run.sh test             pytest (vision + content tools)
+#   ./run.sh smoke            headless Godot session smoke test (no camera needed)
+#   ./run.sh field-build      package a field build into dist/takatak-field
 #   ./run.sh check            cameras + Hailo hardware check
+#
+# Build: vision/game/play run as TAKATAK_BUILD=field (no recording, no tester keys);
+# mock/play-mock/debug/record/clip default to dev. Override: TAKATAK_BUILD=dev ./run.sh play
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT=$(pwd)
 VENV_DIR="${VENV_DIR:-.env}"
 PY="$ROOT/$VENV_DIR/bin/python"
-[[ -x "$PY" ]] || { echo "venv $VENV_DIR missing: run ./install.sh first"; exit 1; }
+if [[ ! -x "$PY" ]]; then
+  if [[ -f vision/takatak_vision/_build.py ]] && command -v python3 >/dev/null; then
+    PY=$(command -v python3)   # field package on a provisioned Pi: system python3
+  else
+    echo "venv $VENV_DIR missing: run ./install.sh first"; exit 1
+  fi
+fi
 
 # Started over SSH? Attach to the Pi's desktop session so windows open on the TV.
 if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
@@ -38,7 +49,7 @@ find_godot() {
 run_game() {
   local godot
   godot=$(find_godot)
-  "$PY" tools/content_build.py >/dev/null
+  [[ -f tools/content_build.py ]] && "$PY" tools/content_build.py >/dev/null
   if [[ ! -d game/.godot ]]; then
     echo "first run: letting Godot scan the project…"
     "$godot" --headless --path game --editor --quit >/dev/null 2>&1 || true
@@ -97,15 +108,30 @@ with_background() {  # run "$@" in background while the game runs, stop it after
 cmd="${1:-help}"
 [[ $# -gt 0 ]] && shift
 case "$cmd" in
+  mock|play-mock|debug|record|clip) export TAKATAK_BUILD="${TAKATAK_BUILD:-dev}" ;;
+  *) export TAKATAK_BUILD="${TAKATAK_BUILD:-field}" ;;
+esac
+need() {  # dev tools are not in field packages
+  [[ -e "$1" ]] || { echo "$1 is not part of this build (field package: dev tools are left out)"; exit 1; }
+}
+case "$cmd" in
   vision)    cd vision && exec "$PY" -m takatak_vision.main "$@" ;;
-  mock)      exec "$PY" vision/tools/mock_server.py "$@" ;;
-  debug)     exec "$PY" vision/tools/debug_view.py "$@" ;;
-  record)    exec "$PY" vision/tools/record_session.py "$@" ;;
-  clip)      exec "$PY" vision/tools/record_clip.py "$@" ;;
+  mock)      need vision/tools/mock_server.py; exec "$PY" vision/tools/mock_server.py "$@" ;;
+  debug)     need vision/tools/debug_view.py; exec "$PY" vision/tools/debug_view.py "$@" ;;
+  record)    need vision/tools/record_session.py; exec "$PY" vision/tools/record_session.py "$@" ;;
+  clip)      need vision/tools/record_clip.py; exec "$PY" vision/tools/record_clip.py "$@" ;;
   game)      run_game "$@" ;;
   play)      with_background bash -c "cd '$ROOT/vision' && exec '$PY' -m takatak_vision.main"; run_game "$@" ;;
-  play-mock) with_background "$PY" vision/tools/mock_server.py; run_game --windowed "$@" ;;
+  play-mock) need vision/tools/mock_server.py; with_background "$PY" vision/tools/mock_server.py; run_game --windowed "$@" ;;
+  smoke)
+    godot=$(find_godot)
+    "$PY" tools/content_build.py >/dev/null
+    [[ -d game/.godot ]] || "$godot" --headless --path game --editor --quit >/dev/null 2>&1 || true
+    tmp=$(mktemp -d)
+    "$godot" --headless --path game res://tests/SessionSmoke.tscn -- --usage-dir="$tmp" ;;
+  field-build) need tools/make_field_build.py; exec "$PY" tools/make_field_build.py "$@" ;;
   content)
+    need tools/content_build.py
     "$PY" tools/tts_drafts.py
     "$PY" tools/voice_pipeline.py
     "$PY" tools/content_build.py
@@ -115,5 +141,5 @@ case "$cmd" in
     hailortcli fw-control identify || true
     rpicam-hello --list-cameras || true
     exec "$PY" -c "from picamera2 import Picamera2; [print(c) for c in Picamera2.global_camera_info()]" ;;
-  *) sed -n '2,13p' "$0" ;;
+  *) sed -n '2,19p' "$0" ;;
 esac

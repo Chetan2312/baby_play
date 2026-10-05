@@ -1,7 +1,7 @@
 """WebSocket server (ws://127.0.0.1:8765). Survives game disconnects/reconnects.
 
 Per client:
-  - events (hello, gesture, status, no_player, pong, error) are queued and never dropped
+  - events (hello, gesture, status, no_player, button, pong, error) are queued and never dropped
   - pose messages and JPEG frames are latest-wins: a slow client just skips some
 """
 import asyncio
@@ -55,6 +55,7 @@ class VisionServer:
         self.source = source
         self.clients = set()
         self._last_no_player = 0.0
+        self._loop = None
 
     # ---- connection ----
     async def handler(self, ws, *_):
@@ -62,7 +63,8 @@ class VisionServer:
         self.clients.add(c)
         print(f"[server] client connected ({len(self.clients)})")
         c.push(P.dumps(P.hello(self.source.camera_name, self.source.models, self.source.mic,
-                               self.source.errors(), self.source.mirror)))
+                               self.source.errors(), self.source.mirror,
+                               getattr(self.source, "hardware", None))))
         self._update_frames_wanted()
         writer = asyncio.create_task(c.writer())
         try:
@@ -100,6 +102,15 @@ class VisionServer:
             c.push(P.dumps(P.pong()))
         elif t in ("mic_listen_start", "mic_listen_stop"):
             c.push(P.dumps(P.error("microphone not available yet (Phase P5)")))
+
+    def _broadcast(self, text):
+        for c in self.clients:
+            c.push(text)
+
+    def button_threadsafe(self, state):
+        """Called from the GPIO thread: forward a button edge to every game client."""
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._broadcast, P.dumps(P.button(state)))
 
     def _update_frames_wanted(self):
         self.source.set_frames_wanted(any(c.sub["frames"] for c in self.clients))
@@ -150,6 +161,8 @@ class VisionServer:
 
     async def serve(self, stop_event=None, ready=None):
         host, port = self.cfg["host"], self.cfg["port"]
+        self._loop = asyncio.get_running_loop()
+        self.source.on_button = self.button_threadsafe
         async with websockets.serve(self.handler, host, port, max_size=2 ** 22,
                                     ping_interval=5, ping_timeout=10):
             print(f"[server] listening on ws://{host}:{port}")

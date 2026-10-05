@@ -1,0 +1,14 @@
+# Standard anganwadi session (SessionDirector). Built to content/build/sessions/standard_v1.json.
+# One "start" press runs every step in order; the session ends by itself.
+# Step minutes are scaled to the centre's session_minutes (centre_profile.yaml).
+id: standard_v1
+total_minutes: 18          # configurable 12–20
+fallback_game: simon_says  # plays when a step's game isn't built yet (content_lint lists them)
+bridge_prefix: session_bridge   # mascot line between steps: session_bridge_01, _02 …
+steps:
+  - {id: greet,     type: mascot_line, line: session_greet}
+  - {id: warmup,    game: simon_says,  minutes: 3, pack: body_parts}
+  - {id: theme,     game: from_week,   minutes: 8}   # this week's theme playlist (curriculum/weeks.yaml)
+  - {id: talkback,  game: call_response, minutes: 3}
+  - {id: cooldown,  game: story_calm,  minutes: 3}
+  - {id: goodbye,   type: mascot_line, line: session_goodbye, then: end_session}

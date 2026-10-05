@@ -1,0 +1,41 @@
+# Weekly themes mapped to the Aadharshila calendar. The session's "theme" step plays
+# the current week's games (centre_profile.yaml: current_week, or the supervisor menu).
+#
+# aadharshila_ref: must be filled by someone reading the actual Aadharshila curriculum
+#   document. Do NOT invent references. content_lint lists every TODO.
+# reviewed: false until a native Marathi/Hindi speaker has checked the titles.
+- week: 1
+  theme_id: my_body
+  title: {mr: "माझे शरीर", hi: "मेरा शरीर", en: "My body"}
+  aadharshila_ref: "TODO: fill exact Aadharshila week/activity reference"
+  games: [simon_says, shape_match_lite]
+  packs: [body_parts]
+  reviewed: false
+- week: 2
+  theme_id: fruits
+  title: {mr: "फळे", hi: "फल", en: "Fruits"}
+  aadharshila_ref: "TODO"
+  games: [catch_mango, bubble_pop]
+  packs: [local_fruits]
+  reviewed: false
+- week: 3
+  theme_id: farm_animals
+  title: {mr: "शेतातील प्राणी", hi: "खेत के जानवर", en: "Farm animals"}
+  aadharshila_ref: "TODO"
+  games: [animal_parade, call_response]
+  packs: [farm_animals]
+  reviewed: false
+- week: 4
+  theme_id: numbers_1_5
+  title: {mr: "अंक १ ते ५", hi: "अंक 1 से 5", en: "Numbers 1–5"}
+  aadharshila_ref: "TODO"
+  games: [bubble_pop]
+  packs: [numbers_1_5]
+  reviewed: false
+- week: 5
+  theme_id: grains_and_crops
+  title: {mr: "धान्य आणि पिके", hi: "अनाज और फसलें", en: "Grains and crops"}
+  aadharshila_ref: "TODO"
+  games: [show_me_object]          # uses the custom local-object model (not built yet)
+  packs: [local_crops]
+  reviewed: false

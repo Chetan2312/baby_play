@@ -1,5 +1,7 @@
 # Vision ↔ Game protocol (v1)
 
+Additions since Phase 2 (`hello.hardware`, `button`, `imx500`) are additive: the version stays 1.
+
 Source of truth: `vision/takatak_vision/protocol.py`. Mirror: `game/autoload/VisionClient.gd`.
 Tests: `vision/tests/test_protocol.py`, `vision/tests/test_server.py`.
 
@@ -24,7 +26,7 @@ Keypoints: `nose l_eye r_eye l_ear r_ear l_shoulder r_shoulder l_elbow r_elbow l
 
 | `t` | Fields | Notes |
 |---|---|---|
-| `hello` | `version, camera, models[], mic, mirror, errors[]` | Sent first on every connection |
+| `hello` | `version, camera, models[], mic, mirror, errors[], hardware{}` | Sent first on every connection. `hardware`: boot probe for the status screen: `profile, accelerator, accelerator_expected, accelerator_present, model, cameras[], audio[], mic, network, errors[]` (`{}` when unknown) |
 | `pose` | `frame_id, people[{id, active, conf, bbox[x1,y1,x2,y2], scale, kp{}}]` | Every inference frame. Latest wins (a slow client skips some). Includes everyone; `active` marks player(s) |
 | `gesture` | `player, name, state, confidence` | `state`: `start` → `held` → `end`. `name` is a static check or `neutral`. Sent only for active players. Never dropped |
 | `motion` | `player, name, confidence, count` | Phase P7 |
@@ -33,6 +35,7 @@ Keypoints: `nose l_eye r_eye l_ear r_ear l_shoulder r_shoulder l_elbow r_elbow l
 | `keyword` | `word, lang, confidence` | Phase 2b |
 | `status` | `fps{cam,pose,frames}, temp_c, errors[], camera` | Every 1 s |
 | `no_player` | `seconds` | Every 0.5 s while there is no active player (from 1 s on) |
+| `button` | `state`: `down` \| `up` | GPIO worker button edge (`gpio_button` in config.yaml). The game's InputRouter turns edges into short / 2 s / 5 s presses. Never dropped |
 | `pong` | | Reply to `ping` |
 | `error` | `text` | Bad message from the game, or an unavailable feature |
 
@@ -44,7 +47,7 @@ Static gesture names: `touch_nose touch_head touch_ear hands_up touch_tummy touc
 |---|---|---|
 | `subscribe` | `frames, mask, loudness, motion[]` | Defaults: frames on, everything else off |
 | `set_players` | `mode`: `single` \| `duo` | Duo: one active player per screen half |
-| `set_camera` | `camera`: `wide` \| `noir` \| `auto` | |
+| `set_camera` | `camera`: `wide` \| `noir` \| `imx500` \| `auto` | With one camera connected, that camera is used whatever is asked |
 | `set_difficulty` | `difficulty`: `toddler` \| `kid` | Picks the static gesture tolerances (addition to the brief) |
 | `mic_listen_start` | `purpose, max_s` (≤ 10) | Phase P5; returns `error` until then |
 | `mic_listen_stop` | | Phase P5 |

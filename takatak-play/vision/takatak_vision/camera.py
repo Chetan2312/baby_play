@@ -3,8 +3,13 @@
 main  : XBGR8888 → numpy [R,G,B,255] per pixel → JPEG "RGBX" (encoder.py), 960x540
 lores : RGB888   → numpy [B,G,R] (Picamera2 naming), swapped to RGB in pose.py
 
-Sensors are matched by model name (imx708_wide vs *_noir), falling back to
-camera_index in config. Errors become a message string for the UI, not a crash.
+Sensors are matched by model name (imx708_wide vs *_noir vs imx500), falling
+back to camera_index in config. With a single camera connected, whatever is there
+is used (the kit has only the AI Camera; the dev rig may run with one of its two).
+Errors become a message string for the UI, not a crash.
+
+IMX500 (AI Camera): used here as a plain camera feeding the Hailo. On-sensor
+inference is a later optimisation (docs/model_matrix.md).
 """
 import threading
 import time
@@ -12,6 +17,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .hardware import camera_kind
 from .slots import LatestSlot
 
 
@@ -40,21 +46,24 @@ def list_cameras():
 
 
 def find_camera_num(which, cfg):
+    """→ (camera number, actual kind). Raises CameraError with a friendly message."""
     infos = list_cameras()
     if not infos:
         raise CameraError("No camera detected. Check ribbon cables, then: rpicam-hello --list-cameras")
-    models = [(i.get("Num", n), str(i.get("Model", "")).lower()) for n, i in enumerate(infos)]
-    if which == "noir":
-        hits = [num for num, m in models if "noir" in m]
-    else:
-        hits = [num for num, m in models if "noir" not in m]
-        hits.sort(key=lambda num: "wide" not in dict(models)[num])
+    cams = [(i.get("Num", n), str(i.get("Model", "")).lower()) for n, i in enumerate(infos)]
+    hits = [num for num, m in cams if camera_kind(m) == which]
+    if which == "wide":
+        hits.sort(key=lambda num: "wide" not in dict(cams)[num])
     if hits:
-        return hits[0]
+        return hits[0], which
+    if len(cams) == 1:   # single-camera setup: use what is there
+        num, m = cams[0]
+        print(f"[camera] '{which}' not connected; using the only camera ({m})")
+        return num, camera_kind(m)
     idx = cfg["camera_index"].get(which)
     if idx is not None and idx < len(infos):
-        return idx
-    found = ", ".join(m for _, m in models)
+        return idx, camera_kind(cams[idx][1])
+    found = ", ".join(m for _, m in cams)
     raise CameraError(f"'{which}' camera not found (found: {found})")
 
 
@@ -89,7 +98,7 @@ class CameraThread(threading.Thread):
     # thread
     def _open(self, which):
         from picamera2 import Picamera2
-        num = find_camera_num(which, self.cfg)
+        num, kind = find_camera_num(which, self.cfg)
         cam = Picamera2(num)
         controls = {"FrameRate": float(self.copts["framerate"]), **(self.copts.get("controls") or {})}
         config = cam.create_preview_configuration(
@@ -98,7 +107,7 @@ class CameraThread(threading.Thread):
             controls=controls, buffer_count=4)
         cam.configure(config)
         cam.start()
-        return cam
+        return cam, kind
 
     @staticmethod
     def _grab(cam):
@@ -113,7 +122,12 @@ class CameraThread(threading.Thread):
     def _auto_pick(self):
         """Measure brightness on the colour camera; dark room → NoIR."""
         try:
-            cam = self._open("wide")
+            if len(list_cameras()) == 1:   # nothing to choose between
+                return camera_kind(list_cameras()[0].get("Model", ""))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            cam, _ = self._open("wide")
         except Exception:
             return "noir"
         try:
@@ -140,7 +154,7 @@ class CameraThread(threading.Thread):
             self._switch.clear()
             self.status = f"starting {which} camera…"
             try:
-                cam = self._open(which)
+                cam, which = self._open(which)
             except Exception as e:  # noqa: BLE001 - any libcamera failure → on-screen message
                 self.error = f"Camera '{which}': {e}"
                 self.active = which

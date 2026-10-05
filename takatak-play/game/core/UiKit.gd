@@ -79,6 +79,16 @@ static func line_rows(line_id: String, langs: Array, size := 84) -> Array:
 	return rows
 
 
+## Rows for a UI string (ui/strings.yaml): Marathi big, English smaller.
+static func ui_rows(key: String, size := 60, color := Color.WHITE) -> Array:
+	return [[ContentDB.ui_text(key, "mr"), size, color], [ContentDB.ui_text(key, "en"), int(size * 0.7), color.darkened(0.15)]]
+
+
+## "मराठी / English" on one line
+static func ui_both(key: String) -> String:
+	return "%s / %s" % [ContentDB.ui_text(key, "mr"), ContentDB.ui_text(key, "en")]
+
+
 static func full_rect(c: Control) -> Control:
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE

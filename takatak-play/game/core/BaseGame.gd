@@ -2,7 +2,11 @@ extends Node2D
 ## Game interface. Every game scene's root script extends this file:
 ##     extends "res://core/BaseGame.gd"
 ## GameManager reads the export flags to subscribe to vision data and routes
-## vision signals to the on_* methods. Games never touch the WebSocket.
+## vision signals to the on_* methods. Games never touch the WebSocket or raw keys.
+##
+## SessionDirector runs games for a fixed time: when the step's time is up it calls
+## request_finish(); the game finishes at its next round boundary (never mid-round).
+## "repeat" on the remote calls repeat_prompt().
 ##
 ## Shared services: AudioDirector (voice/sfx), GameManager.mascot, GameManager.praise,
 ## GameManager.game_ui (full-screen Control inside TV-safe margins; cleared between games).
@@ -15,10 +19,12 @@ signal finished(result: Dictionary)   # {rounds, successes, duration_s, events: 
 @export var needs_mic := false
 @export var motions: PackedStringArray = []
 @export var camera_mode := "mirror"   # mirror | cutout | hidden
+@export var movement := true          # counts towards movement_minutes (usage counters)
 
 var config: Dictionary = {}
 var paused := false
 var started_ms := 0
+var finish_requested := false
 
 
 func setup(cfg: Dictionary) -> void:
@@ -57,8 +63,18 @@ func resume() -> void:
 	paused = false
 
 
-## Tester key (Space): skip the current round.
+## Dev key (X): skip the current round.
 func skip() -> void:
+	pass
+
+
+## The session step's time is up: finish at the next round boundary.
+func request_finish() -> void:
+	finish_requested = true
+
+
+## Remote "repeat" (Page Up): say the current prompt again.
+func repeat_prompt() -> void:
 	pass
 
 
@@ -68,4 +84,5 @@ func duration_s() -> float:
 
 func finish(result: Dictionary) -> void:
 	result["duration_s"] = duration_s()
+	result["movement"] = movement
 	finished.emit(result)

@@ -16,6 +16,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from takatak_vision import protocol as P  # noqa: E402
+from takatak_vision.build import require_dev  # noqa: E402
 from takatak_vision.config import load_config, path  # noqa: E402
 
 WARNING = """
@@ -28,6 +29,7 @@ WARNING = """
 
 
 def main():
+    require_dev("record_session.py")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--url", default=None)
     ap.add_argument("--seconds", type=float, default=30)

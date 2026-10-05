@@ -13,6 +13,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from takatak_vision.camera import CameraError, find_camera_num  # noqa: E402
+from takatak_vision.build import require_dev  # noqa: E402
 from takatak_vision.config import load_config, path  # noqa: E402
 
 WARNING = """
@@ -25,8 +26,9 @@ WARNING = """
 
 
 def main():
+    require_dev("record_clip.py")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--camera", choices=["wide", "noir"], default="wide")
+    ap.add_argument("--camera", choices=["wide", "noir", "imx500"], default="wide")
     ap.add_argument("--seconds", type=int, default=20)
     ap.add_argument("--i-have-consent", action="store_true", required=True,
                     help="confirm everyone in frame consented to being recorded")
@@ -36,7 +38,7 @@ def main():
     from picamera2 import Picamera2
 
     try:
-        num = find_camera_num(args.camera, cfg)
+        num, _ = find_camera_num(args.camera, cfg)
     except CameraError as e:
         sys.exit(str(e))
     out_dir = path("../logs/clips")

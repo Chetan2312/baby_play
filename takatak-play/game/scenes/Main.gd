@@ -7,6 +7,7 @@ extends Node2D
 ##   UI      CanvasLayer 5          TV-safe MarginContainer → GameUI (games add Controls)
 ##   Mascot  CanvasLayer 6
 ##   Praise  CanvasLayer 7          stars, confetti, word card
+##   Supervisor CanvasLayer 9       supervisor menu (PIN, settings, usage, privacy, status)
 ##   Overlay CanvasLayer 10         getting-ready screen, errors, toasts, debug
 
 const CameraLayerScript = preload("res://core/CameraLayer.gd")
@@ -58,6 +59,14 @@ func _ready() -> void:
 	praise.name = "PraiseBurst"
 	praise_layer.add_child(praise)
 
+	var sup_layer := CanvasLayer.new()
+	sup_layer.layer = 9
+	add_child(sup_layer)
+	var supervisor := Control.new()
+	supervisor.name = "Supervisor"
+	UiKit.full_rect(supervisor)
+	sup_layer.add_child(supervisor)
+
 	var overlay_layer := CanvasLayer.new()
 	overlay_layer.layer = 10
 	add_child(overlay_layer)
@@ -69,7 +78,7 @@ func _ready() -> void:
 	_apply_safe_margins()
 
 	GameManager.attach(self, {"camera": cam, "game_root": game_root, "game_ui": game_ui,
-		"avatar": avatar, "mascot": mascot, "praise": praise, "overlay": overlay})
+		"avatar": avatar, "mascot": mascot, "praise": praise, "overlay": overlay, "supervisor": supervisor})
 	GameManager.boot()
 
 

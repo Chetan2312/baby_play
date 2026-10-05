@@ -138,6 +138,10 @@ class MockSource:
     camera_name = "mock"
     mic = False
     mirror = True
+    hardware = {"profile": "mock", "accelerator": None, "accelerator_expected": None,
+                "accelerator_present": False, "cameras": ["mock"], "audio": [], "mic": False,
+                "network": "unknown", "errors": []}
+    on_button = None
 
     def __init__(self, cfg, performer=None, replay=None, pose_hz=25.0, frame_hz=20.0):
         self.cfg = cfg

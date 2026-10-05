@@ -1,7 +1,23 @@
 # Takatak vision service configuration. Every threshold lives here.
 
-camera: wide                      # wide | noir | auto (game can change it: set_camera)
-camera_index: { wide: 0, noir: 1 }  # fallback if sensor model names can't be matched
+# Hardware profile. Models (HEF) are compiled per accelerator and are NOT
+# interchangeable: each profile has its own models_dir. See docs/model_matrix.md.
+hardware:
+  profile: devrig                 # devrig | kit
+profiles:
+  devrig:                         # Pi 5 8 GB + AI HAT+ 26 TOPS + CM3 Wide (+ CM3 NoIR)
+    accelerator: hailo8
+    models_dir: models/hailo8
+    cameras: [wide, noir]
+    default_camera: wide
+  kit:                            # Pi 5 16 GB + AI HAT+ 2 + Raspberry Pi AI Camera (UNVERIFIED: no kit yet)
+    accelerator: hailo10h
+    models_dir: models/hailo10h
+    cameras: [imx500]
+    default_camera: imx500
+
+camera: default                   # default (profile's) | wide | noir | imx500 | auto (game: set_camera)
+camera_index: { wide: 0, noir: 1, imx500: 0 }  # fallback if sensor model names can't be matched
 camera_opts:
   main_size: [960, 540]           # display/transport stream (ISP scales; JPEG'd for the game)
   framerate: 30
@@ -12,7 +28,7 @@ camera_opts:
 display:
   mirror: true                    # frames AND coordinates are sent pre-mirrored
 
-model: models/yolov8s_pose.hef
+model: yolov8s_pose.hef           # file name inside the profile's models_dir
 
 inference:
   input_size: 640
@@ -97,11 +113,19 @@ thermal:
   throttled_frame_fps: 15
 
 paths:
-  perf_log: ../logs/vision_perf.log
-  sessions: ../logs/sessions      # tools/record_session.py output (keypoints only by default)
+  perf_log: ../logs/vision_perf.log   # fps + temperature only: no frames, keypoints or audio
+  sessions: ../logs/sessions      # DEV ONLY: tools/record_session.py output (not in field builds)
+  tmp_audio: /run/takatak         # echo/voice temp files (Phase P5): RAM-only tmpfs, never the SSD
 
 perf:
   log_every_s: 5
+
+# Single worker button on a GPIO pin (gpiozero). Short press = start/next,
+# 2 s = stop, 5 s = supervisor menu (timing lives in the game's InputRouter).
+gpio_button:
+  enabled: false
+  pin: 17                         # BCM numbering; button to GND, internal pull-up
+  bounce_s: 0.05
 
 privacy:
   save_frames: false              # the service never writes frames; must stay false

@@ -107,7 +107,7 @@ func _draw_prompt() -> Dictionary:
 
 
 func _next_round() -> void:
-	if round_idx >= int(num("rounds", 10)):
+	if finish_requested or round_idx >= int(num("rounds", 10)):
 		_finish_game()
 		return
 	round_idx += 1
@@ -271,6 +271,12 @@ func skip() -> void:
 	elif st == St.CELEBRATE:
 		AudioDirector.stop_voice()
 		_next_round()
+
+
+func repeat_prompt() -> void:
+	if not paused and st in [St.INTRO, St.LISTEN, St.HINT]:
+		AudioDirector.stop_voice()
+		_intro()
 
 
 func pause() -> void:
