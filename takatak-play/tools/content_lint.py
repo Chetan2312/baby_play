@@ -188,6 +188,18 @@ def lint(strict_audio=False, release=False):
         prefix = g.get("hint_prefix")
         if prefix and not any(lid.startswith(prefix) for lid in lines):
             errors.append(f"game {gid}: no lines with hint_prefix {prefix!r}")
+        for pack, pitems in (g.get("packs") or {}).items():
+            if not pitems:
+                errors.append(f"game {gid}: pack {pack!r} is empty")
+            for it in pitems or []:
+                tag = f"game {gid} pack {pack} item {it.get('id')!r}"
+                for k in ("line", "word"):
+                    if it.get(k) not in lines:
+                        errors.append(f"{tag}: unknown {k} {it.get(k)!r}")
+                if it.get("image") and not os.path.exists(os.path.join(CONTENT, it["image"])):
+                    errors.append(f"{tag}: image missing {it['image']}")
+        if g.get("default_pack") and g["default_pack"] not in (g.get("packs") or {}):
+            errors.append(f"game {gid}: default_pack {g['default_pack']!r} is not one of its packs")
         ids = {p["id"] for p in g.get("prompts", [])}
         for level, pool in (g.get("levels") or {}).items():
             for pid in pool:

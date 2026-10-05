@@ -152,4 +152,32 @@ func _run() -> void:
 	var e: Dictionary = Stats.day_entry()
 	check(int(e["steps_completed"].get("greet", 0)) >= 1, "completed steps counted (skipped ones are not)")
 	check(e["games"].has("simon_says"), "game counted")
+	# week 2 (fruits): theme = catch_mango (not built → Simon Says) then Bubble Pop
+	ContentDB.session["pause_after_s"] = 9999.0   # no camera here: don't pause for "children left"
+	Centre.set_value("current_week", 2)
+	Centre.set_value("max_sessions_per_day", 99)
+	await press("next")          # start
+	await press("next")          # greet → warm-up
+	await press("next", 0.4)     # warm-up → theme (bridge)
+	await press("next", 0.4)     # skip bridge
+	games = sd.segments.map(func(x): return x["game"])
+	check(games == ["simon_says", "bubble_pop"], "week 2 → fallback + bubble_pop (got %s)" % str(games))
+	sd._next_segment()
+	await wait(0.3)
+	var bp = GameManager.current_game
+	check(GameManager.current_game_id == "bubble_pop" and bp.pack == "local_fruits", "bubble pop with the fruit pack")
+	for i in 30:
+		if not bp.target.is_empty() and not bp.bubbles.is_empty():
+			break
+		await wait(0.2)
+	check(not bp.bubbles.is_empty(), "bubbles rise")
+	check(bp._textures.size() == 4, "fruit photos loaded (%d)" % bp._textures.size())
+	var wanted := int(bp.d("pops_to_win", 2))
+	for i in wanted:
+		bp.bubbles.append({"x0": 0.5, "x": 0.5, "y": 0.5, "r": 0.08, "item": bp.target, "phase": 0.0, "speed": 0.0})
+		bp.pop_bubble(bp.bubbles[-1])
+	check(bp.successes == 1 and bp.st == bp.St.CELEBRATE, "popping the asked bubble wins the round")
+	await press("supervisor")
+	await press("back", 0.3)
+	Centre.set_value("current_week", 3)
 	Centre.set_value("max_sessions_per_day", 2)

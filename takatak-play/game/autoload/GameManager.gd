@@ -18,6 +18,7 @@ const UiKit = preload("res://core/UiKit.gd")
 const SupervisorScript = preload("res://scenes/Supervisor.gd")
 const GAME_SCENES := {
 	"simon_says": "res://games/simon_says/SimonSays.tscn",
+	"bubble_pop": "res://games/bubble_pop/BubblePop.tscn",
 }
 const ATTRACT_SCENE := "res://scenes/Attract.tscn"
 const FINISH_SCENE := "res://scenes/Finish.tscn"
@@ -367,7 +368,8 @@ func _pause() -> void:
 	AudioDirector.stop_voice()
 	mascot.go_spotlight()
 	mascot.play("wave_hello", 3.0)
-	var card := UiKit.card(UiKit.line_rows("callback_01", Settings.ordered_langs(), 90))
+	# the children have left: the centre is free, and the side column holds the game's prompt
+	var card := UiKit.card(UiKit.line_rows("callback_01", Settings.ordered_langs(), 80))
 	_pause_card = UiKit.center(game_ui, card)
 	AudioDirector.say(AudioDirector.pick_line("callback"), Settings.prompt_langs(0), true)
 

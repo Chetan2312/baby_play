@@ -49,8 +49,14 @@ static func label(text: String, size: int, color := Color.WHITE, outline := -1) 
 	return l
 
 
-## rows: [[text, size, color], ...] stacked in a rounded translucent panel
-static func card(rows: Array, alpha := 0.55) -> PanelContainer:
+const SIDE_FRAC := 0.3        # side column width (fraction of the view): keeps the centre free for the child
+const PROMPT_SIZE := 60        # in-game prompt: first language
+const PROMPT_SIZE_2 := 40      # in-game prompt: other languages
+
+
+## rows: [[text, size, color], ...] stacked in a rounded translucent panel.
+## wrap_width > 0: labels wrap inside that width (side column cards).
+static func card(rows: Array, alpha := 0.55, wrap_width := 0.0) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0, 0, 0, alpha)
@@ -66,7 +72,11 @@ static func card(rows: Array, alpha := 0.55) -> PanelContainer:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(v)
 	for r in rows:
-		v.add_child(label(str(r[0]), int(r[1]), r[2]))
+		var l := label(str(r[0]), int(r[1]), r[2])
+		if wrap_width > 0.0:
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.custom_minimum_size.x = wrap_width - 80.0
+		v.add_child(l)
 	return p
 
 
@@ -105,6 +115,29 @@ static func top_center(parent: Control, child: Control) -> Control:
 	c.add_child(child)
 	v.add_child(c)
 	return v
+
+
+## Card for in-game text (prompts, mascot lines while children play): top-left side
+## column, smaller wrapping text, so the centre of the screen (the child) stays clear.
+static func side_card(parent: Control, rows: Array) -> Control:
+	var w := parent.get_viewport_rect().size.x * SIDE_FRAC
+	var h := HBoxContainer.new()
+	full_rect(h)
+	parent.add_child(h)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.custom_minimum_size.x = w
+	v.add_child(card(rows, 0.55, w))
+	h.add_child(v)
+	return h
+
+
+## line_rows sized for side_card
+static func prompt_rows(line_id: String, langs: Array) -> Array:
+	var rows: Array = []
+	for i in langs.size():
+		rows.append([ContentDB.text(line_id, langs[i]), PROMPT_SIZE if i == 0 else PROMPT_SIZE_2, lang_color(langs[i])])
+	return rows
 
 
 ## Adds `child` centred in `parent`.

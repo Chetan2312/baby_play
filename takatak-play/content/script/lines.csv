@@ -182,3 +182,72 @@ session_tomorrow,goodbye,1,en,See you tomorrow!,warm,false,false
 session_rest,transition,1,mr,मी आता विश्रांती घेतोय! उद्या खेळूया!,calm,false,false
 session_rest,transition,1,hi,मैं अभी आराम कर रहा हूँ! कल खेलेंगे!,calm,false,false
 session_rest,transition,1,en,I'm resting now! Let's play tomorrow!,calm,false,false
+bubble_intro,transition,1,mr,हातांनी फुगे फोडा!,excited,false,false
+bubble_intro,transition,1,hi,हाथों से बुलबुले फोड़ो!,excited,false,false
+bubble_intro,transition,1,en,Pop the bubbles with your hands!,excited,false,false
+bubble_pop_hint_01,hint,1,mr,हात उंच कर आणि फुगा फोड!,encouraging,false,false
+bubble_pop_hint_01,hint,1,hi,हाथ ऊपर करो और बुलबुला फोड़ो!,encouraging,false,false
+bubble_pop_hint_01,hint,1,en,Reach up high and pop it!,encouraging,false,false
+bubble_pop_hint_02,hint,1,mr,"बघ, फुगा तुझ्याजवळ आलाय!",encouraging,false,false
+bubble_pop_hint_02,hint,1,hi,"देखो, बुलबुला तुम्हारे पास आया!",encouraging,false,false
+bubble_pop_hint_02,hint,1,en,"Look, the bubble is coming to you!",encouraging,false,false
+bubble_mango,prompt,1,mr,आंब्याचा फुगा फोड!,playful,false,false
+bubble_mango,prompt,1,hi,आम वाला बुलबुला फोड़ो!,playful,false,false
+bubble_mango,prompt,1,en,Pop the mango bubble!,playful,false,false
+bubble_banana,prompt,1,mr,केळ्याचा फुगा फोड!,playful,false,false
+bubble_banana,prompt,1,hi,केले वाला बुलबुला फोड़ो!,playful,false,false
+bubble_banana,prompt,1,en,Pop the banana bubble!,playful,false,false
+bubble_grapes,prompt,1,mr,द्राक्षांचा फुगा फोड!,playful,false,false
+bubble_grapes,prompt,1,hi,अंगूर वाला बुलबुला फोड़ो!,playful,false,false
+bubble_grapes,prompt,1,en,Pop the grapes bubble!,playful,false,false
+bubble_pomegranate,prompt,1,mr,डाळिंबाचा फुगा फोड!,playful,false,false
+bubble_pomegranate,prompt,1,hi,अनार वाला बुलबुला फोड़ो!,playful,false,false
+bubble_pomegranate,prompt,1,en,Pop the pomegranate bubble!,playful,false,false
+bubble_tomato,prompt,1,mr,टोमॅटोचा फुगा फोड!,playful,false,false
+bubble_tomato,prompt,1,hi,टमाटर वाला बुलबुला फोड़ो!,playful,false,false
+bubble_tomato,prompt,1,en,Pop the tomato bubble!,playful,false,false
+bubble_one,prompt,1,mr,एकचा फुगा फोड!,playful,false,false
+bubble_one,prompt,1,hi,एक वाला बुलबुला फोड़ो!,playful,false,false
+bubble_one,prompt,1,en,Pop the number one!,playful,false,false
+bubble_two,prompt,1,mr,दोनचा फुगा फोड!,playful,false,false
+bubble_two,prompt,1,hi,दो वाला बुलबुला फोड़ो!,playful,false,false
+bubble_two,prompt,1,en,Pop the number two!,playful,false,false
+bubble_three,prompt,1,mr,तीनचा फुगा फोड!,playful,false,false
+bubble_three,prompt,1,hi,तीन वाला बुलबुला फोड़ो!,playful,false,false
+bubble_three,prompt,1,en,Pop the number three!,playful,false,false
+bubble_four,prompt,1,mr,चारचा फुगा फोड!,playful,false,false
+bubble_four,prompt,1,hi,चार वाला बुलबुला फोड़ो!,playful,false,false
+bubble_four,prompt,1,en,Pop the number four!,playful,false,false
+bubble_five,prompt,1,mr,पाचचा फुगा फोड!,playful,false,false
+bubble_five,prompt,1,hi,पाँच वाला बुलबुला फोड़ो!,playful,false,false
+bubble_five,prompt,1,en,Pop the number five!,playful,false,false
+word_mango,word,1,mr,आंबा,clear,false,false
+word_mango,word,1,hi,आम,clear,false,false
+word_mango,word,1,en,Mango,clear,false,false
+word_banana,word,1,mr,केळं,clear,false,false
+word_banana,word,1,hi,केला,clear,false,false
+word_banana,word,1,en,Banana,clear,false,false
+word_grapes,word,1,mr,द्राक्षे,clear,false,false
+word_grapes,word,1,hi,अंगूर,clear,false,false
+word_grapes,word,1,en,Grapes,clear,false,false
+word_pomegranate,word,1,mr,डाळिंब,clear,false,false
+word_pomegranate,word,1,hi,अनार,clear,false,false
+word_pomegranate,word,1,en,Pomegranate,clear,false,false
+word_tomato,word,1,mr,टोमॅटो,clear,false,false
+word_tomato,word,1,hi,टमाटर,clear,false,false
+word_tomato,word,1,en,Tomato,clear,false,false
+word_one,word,1,mr,एक,clear,false,false
+word_one,word,1,hi,एक,clear,false,false
+word_one,word,1,en,One,clear,false,false
+word_two,word,1,mr,दोन,clear,false,false
+word_two,word,1,hi,दो,clear,false,false
+word_two,word,1,en,Two,clear,false,false
+word_three,word,1,mr,तीन,clear,false,false
+word_three,word,1,hi,तीन,clear,false,false
+word_three,word,1,en,Three,clear,false,false
+word_four,word,1,mr,चार,clear,false,false
+word_four,word,1,hi,चार,clear,false,false
+word_four,word,1,en,Four,clear,false,false
+word_five,word,1,mr,पाच,clear,false,false
+word_five,word,1,hi,पाँच,clear,false,false
+word_five,word,1,en,Five,clear,false,false

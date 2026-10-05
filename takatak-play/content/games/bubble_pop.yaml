@@ -1,0 +1,38 @@
+# Bubble Pop: bubbles rise from the bottom, each holding an item from the week's pack.
+# The mascot asks for one item; children pop bubbles with their hands. Popping the asked
+# item counts; any other bubble still pops and shows its name (never "wrong").
+# Values given as {toddler: x, kid: y} depend on the difficulty.
+game: bubble_pop
+title: { mr: "फुगे फोडा", hi: "बुलबुले फोड़ो", en: "Bubble Pop" }
+intro_line: bubble_intro
+hint_prefix: bubble_pop_hint      # bubble_pop_hint_01, _02 …
+default_pack: local_fruits        # used when the week's pack isn't one of the packs below
+settings:
+  rounds: 8
+  pops_to_win: { toddler: 2, kid: 3 }        # pops of the asked item per round
+  target_share: { toddler: 1.0, kid: 0.5 }   # share of new bubbles that are the asked item
+  max_bubbles: { toddler: 5, kid: 7 }
+  spawn_every_s: { toddler: 1.1, kid: 0.8 }
+  rise_speed: { toddler: 0.07, kid: 0.1 }    # screen heights per second
+  bubble_radius: { toddler: 0.085, kid: 0.07 }   # fraction of screen height
+  spawn_x: [0.36, 0.82]           # where bubbles start (fraction of width): right of the prompt column
+  hand_reach: 0.5                 # fraction of the hand circle that counts as touching
+  min_hand_speed: 0.12            # screen heights/s: only a MOVING hand pops (resting hands at the hips don't)
+  intro_arm_s: 0.8
+  prompt_timeout_s: 14            # counted only while no voice line is playing
+  hint_attempts: 1                # timeouts that get a hint (bubbles slow down and come to the hands)
+  hint_drift: 0.25                # screen fractions per second towards the nearest hand while hinting
+  celebrate_s: 2.2
+packs:
+  local_fruits:
+    - { id: mango,       word: word_mango,       line: bubble_mango,       image: packs/local_fruits/mango.webp,       color: [1.0, 0.72, 0.2] }
+    - { id: banana,      word: word_banana,      line: bubble_banana,      shape: banana,                              color: [1.0, 0.88, 0.3] }
+    - { id: grapes,      word: word_grapes,      line: bubble_grapes,      image: packs/local_fruits/grapes.webp,      color: [0.55, 0.85, 0.35] }
+    - { id: pomegranate, word: word_pomegranate, line: bubble_pomegranate, image: packs/local_fruits/pomegranate.webp, color: [0.95, 0.3, 0.35] }
+    - { id: tomato,      word: word_tomato,      line: bubble_tomato,      image: packs/local_fruits/tomato.webp,      color: [1.0, 0.35, 0.25] }
+  numbers_1_5:
+    - { id: one,   word: word_one,   line: bubble_one,   count: 1, label: { mr: "१", hi: "१", en: "1" }, color: [1.0, 0.55, 0.3] }
+    - { id: two,   word: word_two,   line: bubble_two,   count: 2, label: { mr: "२", hi: "२", en: "2" }, color: [0.35, 0.75, 1.0] }
+    - { id: three, word: word_three, line: bubble_three, count: 3, label: { mr: "३", hi: "३", en: "3" }, color: [0.5, 0.9, 0.45] }
+    - { id: four,  word: word_four,  line: bubble_four,  count: 4, label: { mr: "४", hi: "४", en: "4" }, color: [1.0, 0.45, 0.75] }
+    - { id: five,  word: word_five,  line: bubble_five,  count: 5, label: { mr: "५", hi: "५", en: "5" }, color: [0.75, 0.55, 1.0] }

@@ -82,13 +82,20 @@ func start() -> void:
 
 func _build_ui() -> void:
 	var ui: Control = GameManager.game_ui
+	# Corner widgets grow INTO the screen (left / up) from their anchor, or they hang off the edge.
 	_ring = ProgressRingScript.new()
+	_ring.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	ui.add_child(_ring)
-	_ring.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_ring.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_ring.offset_left = -_ring.custom_minimum_size.x
+	_ring.offset_right = 0.0
 	_dots = RoundDotsScript.new()
 	_dots.refresh(int(num("rounds", 10)), results, 0)
+	_dots.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	ui.add_child(_dots)
-	_dots.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_dots.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_dots.offset_top = -_dots.custom_minimum_size.y
+	_dots.offset_bottom = 0.0
 
 
 # ---- rounds --------------------------------------------------------------------
@@ -133,12 +140,8 @@ func _intro() -> void:
 
 func _show_prompt_card() -> void:
 	_hide_prompt_card()
-	var rows: Array = []
-	var langs := Settings.display_langs(round_idx - 1)
-	for i in langs.size():
-		var lang: String = langs[i]
-		rows.append([ContentDB.text(str(prompt["line"]), lang), 86 if i == 0 else 62, UiKit.lang_color(lang)])
-	_card = UiKit.top_center(GameManager.game_ui, UiKit.card(rows))
+	var rows := UiKit.prompt_rows(str(prompt["line"]), Settings.display_langs(round_idx - 1))
+	_card = UiKit.side_card(GameManager.game_ui, rows)
 
 
 func _hide_prompt_card() -> void:

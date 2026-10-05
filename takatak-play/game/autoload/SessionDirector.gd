@@ -172,7 +172,7 @@ func _say_line(line_id: String, gen: int, goodbye := false) -> void:
 	var m = GameManager.mascot
 	m.go_spotlight()
 	m.play("wave_bye" if goodbye else "wave_hello", 3.0)
-	UiKit.top_center(GameManager.game_ui, UiKit.card(UiKit.line_rows(line_id, Settings.ordered_langs(), 96)))
+	UiKit.side_card(GameManager.game_ui, UiKit.prompt_rows(line_id, Settings.ordered_langs()))
 	if goodbye:
 		GameManager.praise.rain(120)
 	else:

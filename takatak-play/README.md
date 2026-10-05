@@ -50,10 +50,13 @@ game/                       Godot 4 project (open this folder in the editor; Com
   core/                     BaseGame, CameraLayer, PlayerAvatar, Mascot (placeholder), PraiseBurst, UiKit
   scenes/                   Main, Idle, Supervisor (menu), Attract/Finish (free play), DevaTest, StatusOverlay
   games/simon_says/         Simon Says
+  games/bubble_pop/         Bubble Pop (fruit photos / numbers १–५)
   tests/                    SessionSmoke: headless session-flow test (./run.sh smoke)
 content/
   script/lines.csv          every spoken line × mr/hi/en (DRAFT text: needs native review)
   games/simon_says.yaml     prompts, levels, timing
+  games/bubble_pop.yaml     packs (local_fruits, numbers_1_5), speeds, sizes per difficulty
+  packs/local_fruits/       CC0 / public-domain fruit photos (CREDITS.md)
   sessions/standard.yaml    the anganwadi session (steps, minutes, fallback game)
   curriculum/weeks.yaml     weekly themes mapped to Aadharshila (refs are TODO)
   centre_profile.yaml       per-centre defaults (language, week, caps, PIN …)
@@ -163,6 +166,24 @@ Language modes (centre profile `language_mode`, or `L` in dev builds):
 - `single` (`single`): one language throughout (`primary_language`).
 - `rotate` (dev only): the language changes every round.
 
+## How Bubble Pop works
+
+1. Bubbles rise from the bottom, each holding an item from the week's pack: fruit photos
+   (week 2, `local_fruits`) or numbers १–५ with dots to count (week 4, `numbers_1_5`).
+2. The mascot asks for one item ("Pop the mango bubble!"). A big copy of that bubble sits
+   under the prompt card, so children who can't read see what to pop.
+3. Children pop bubbles by **reaching** with their hands. Only a moving hand pops, so
+   bubbles rising past hands resting at the hips don't count. Popping the asked item
+   counts; any other bubble still pops and shows its name. Nothing is ever "wrong".
+4. 2 pops (toddler) or 3 (kid) of the asked item win the round: praise, the word in 3
+   scripts. Toddlers only get the asked item; kids get a mix.
+5. No luck for 14 s: hint. Bubbles slow down and drift to the hands. After a second
+   timeout, a gentle move on.
+
+The session plays it in the theme step for weeks 2 and 4. The demo default is week 3,
+whose games aren't built yet: pick week 2 or 4 in the supervisor menu to see Bubble Pop
+in a session. Free play (supervisor menu) plays Simon Says, then Bubble Pop.
+
 ## Voice
 
 - Every line lives in `content/script/lines.csv`. The Marathi and Hindi drafts **must be reviewed by native speakers**. `content_lint.py` warns that praise (15) and encourage (8) are below the brief's 25 and 15.
@@ -245,7 +266,7 @@ screen says "date unknown".
 
 Demo build: D3 group play (slots/turns), D5 local-object model, D6 Marathi KWS,
 D7 AI-literacy games, D9 USB pack loader / CEC / thermal soak, D10 demo mode and
-picture cards, D11 dry run. Also the games the curriculum names: bubble_pop,
+picture cards, D11 dry run. Also the games the curriculum names:
 catch_mango, animal_parade, call_response, story_calm, shape_match_lite, show_me_object.
 
 Phase 2, P5 onward:

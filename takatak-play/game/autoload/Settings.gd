@@ -23,7 +23,7 @@ var difficulty := "toddler"
 var session_minutes := 18.0
 var camera := ""              # "" = the vision service's profile default (dev C key sets it)
 var volume := {"Master": 0.0, "Music": -6.0, "Voice": 0.0, "SFX": -4.0, "Echo": 0.0}
-var playlist: Array = ["simon_says"]   # free-play flow only (supervisor menu)
+var playlist: Array = ["simon_says", "bubble_pop"]   # free-play flow only (supervisor menu)
 
 # runtime only (not saved)
 var build := "field"

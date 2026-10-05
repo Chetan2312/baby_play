@@ -31,6 +31,7 @@ INCLUDE = [
     "vision/models",
     "game",
     "content/build",
+    "content/packs",
     "content/voice/processed",
     "content/voice/lipsync",
     "docs/data_policy.md",

@@ -37,15 +37,17 @@ func show_word(rows: Array, seconds := 2.5) -> void:
 	hide_word()
 	var view := get_viewport_rect().size
 	var u := view.y / 1080.0
+	# top-left side column (same place as the prompt it replaces), centre stays on the child
+	var w := view.x * UiKit.SIDE_FRAC
 	var card_rows: Array = []
 	for i in rows.size():
-		card_rows.append([str(rows[i][0]), int((150 if i == 0 else 110) * u), UiKit.lang_color(str(rows[i][1]))])
-	var box := CenterContainer.new()
-	box.position = Vector2.ZERO
-	box.size = view
-	box.pivot_offset = view / 2.0
+		card_rows.append([str(rows[i][0]), int((96 if i == 0 else 60) * u), UiKit.lang_color(str(rows[i][1]))])
+	var box := VBoxContainer.new()
+	box.position = Vector2(view.x * 0.05, view.y * 0.05)   # TV-safe margin
+	box.custom_minimum_size.x = w
+	box.pivot_offset = Vector2(w / 2.0, 80.0 * u)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(UiKit.card(card_rows, 0.45))
+	box.add_child(UiKit.card(card_rows, 0.45, w))
 	add_child(box)
 	_word_box = box
 	box.scale = Vector2(0.6, 0.6)
