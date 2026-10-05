@@ -18,8 +18,13 @@ picker:
 
 settings:                       # all levels
   spawn_x: [0.36, 0.82]         # where bubbles start (fraction of width): right of the prompt column
-  hand_reach: 0.5               # fraction of the hand circle that counts as touching
-  min_hand_speed: 0.12          # screen heights/s: only a MOVING hand pops (resting hands don't)
+  # One pointer per child: the RAISED hand (wrist above elbow); with both raised, the higher
+  # one. The other hand never pops. Only the fingertip point pops (no finger keypoints in
+  # the pose model: the tip sits beyond the wrist along the forearm).
+  pointer_reach: 0.35           # fingertip = wrist + (wrist − elbow) × this
+  pointer_radius: 0.018         # fingertip touch size (fraction of screen height)
+  pointer_switch_margin: 0.06   # the other hand must be this much higher to take over
+  min_hand_speed: 0.12          # screen heights/s: only a MOVING fingertip pops
   intro_arm_s: 0.8
   prompt_timeout_s: 14          # counted only while no voice line is playing
   hint_attempts: 1              # timeouts that get a hint (bubbles slow down and come to the hands)

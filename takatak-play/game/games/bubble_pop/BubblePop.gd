@@ -9,7 +9,10 @@ extends "res://core/BaseGame.gd"
 ## Level: cfg "level" (easy | medium | hard, chosen on the picker), else the game's
 ## session_level for the centre's difficulty. Tunables: content/games/bubble_pop.yaml.
 ##
-## Only a moving hand pops a bubble, so bubbles rising past resting hands don't pop.
+## One hand pops: each child's pointer is the RAISED hand (wrist above elbow), the higher
+## one if both are up; the other hand never pops. Only the fingertip point touches (the
+## pose model has no finger points: the tip sits beyond the wrist along the forearm), it
+## must be moving, and a small cursor shows it.
 ## Timeout → hint: bubbles slow down and drift to the children's hands, then move on.
 ##
 ## Performance (Pi 5): each bubble look (rim, photo / numeral / bee) is drawn ONCE into a
@@ -53,7 +56,9 @@ var bubbles: Array = []
 var _floaters: Array = []       # popped item names rising and fading: {pos, text, color, t}
 var _rings: Array = []          # pop rings: {pos, r, t, color}
 var _spawn_t := 0.0
-var _hand_prev: Dictionary = {} # "player_side" → [pos, smoothed speed px/s]
+var _hand_prev: Dictionary = {} # player → [tip pos, smoothed speed px/s]
+var _pointer_side: Dictionary = {}   # player → "l" | "r" (sticky, see pointer_switch_margin)
+var _pointers: Array = []       # this frame: [{player, pos (px), moving}]
 var _photos: Dictionary = {}    # item id → photo texture
 var _baked: Dictionary = {}     # item id → baked bubble texture
 var _circle_uv := PackedVector2Array()
@@ -324,8 +329,9 @@ func _update_bubbles(delta: float) -> void:
 		if _spawn_t <= 0.0 and bubbles.size() < int(d("max_bubbles", 5)):
 			_spawn()
 			_spawn_t = float(d("spawn_every_s", 1.0))
-	var hands: Array = _moving_hands(GameManager.avatar.hands() if GameManager.avatar != null else [], delta, view)
-	var reach := float(d("hand_reach", 0.5))
+	_pointers = _find_pointers(delta, view)
+	var hands := _pointers
+	var tip_r := float(d("pointer_radius", 0.018)) * view.y
 	var hinting := st == St.HINT
 	var slow := 0.45 if hinting else 1.0
 	var drift := float(d("hint_drift", 0.25)) * delta
@@ -346,7 +352,7 @@ func _update_bubbles(delta: float) -> void:
 		var c := Vector2(b["x"] * view.x, b["y"] * view.y)
 		var rpx := float(b["r"]) * view.y
 		for h in hands:
-			if h["moving"] and (h["pos"] as Vector2).distance_squared_to(c) < pow(rpx + float(h["radius"]) * reach, 2):
+			if h["moving"] and (h["pos"] as Vector2).distance_squared_to(c) < pow(rpx + tip_r, 2):
 				popped.append(b)
 				break
 		i += 1
@@ -374,24 +380,44 @@ func _update_effects(delta: float) -> void:
 	_rings.resize(n)
 
 
-## hands + "moving": smoothed hand speed above min_hand_speed
-func _moving_hands(hands: Array, delta: float, view: Vector2) -> Array:
+## One fingertip per active child: [{player, pos (screen px), moving}].
+func _find_pointers(delta: float, view: Vector2) -> Array:
+	var out: Array = []
+	var reach := float(d("pointer_reach", 0.35))
+	var margin := float(d("pointer_switch_margin", 0.06))
 	var min_speed := float(d("min_hand_speed", 0.12)) * view.y
 	var seen := {}
-	for h in hands:
-		var key := "%s_%s" % [str(h["player"]), str(h["side"])]
-		seen[key] = true
-		var prev = _hand_prev.get(key, null)
+	for p in VisionClient.active_people:
+		var pid := int(p.get("id", -1))
+		var tips := {}
+		for side in ["l", "r"]:
+			var w := VisionClient.kp(p, side + "_wrist")
+			var e := VisionClient.kp(p, side + "_elbow")
+			if w.z >= 0.3 and e.z >= 0.3 and w.y < e.y + 0.01:   # raised: forearm pointing up/out
+				tips[side] = Vector2(w.x, w.y) + (Vector2(w.x, w.y) - Vector2(e.x, e.y)) * reach
+		if tips.is_empty():
+			_pointer_side.erase(pid)
+			continue
+		var side: String = _pointer_side.get(pid, "")
+		if not tips.has(side):
+			side = "l" if tips.has("l") else "r"
+		var other := "r" if side == "l" else "l"
+		if tips.has(other) and tips[other].y < tips[side].y - margin:
+			side = other            # clearly higher: it takes over
+		_pointer_side[pid] = side
+		var pos := VisionClient.to_screen(tips[side], view)
+		var prev = _hand_prev.get(pid, null)
 		var speed := 0.0
 		if prev != null and delta > 0.0:
-			var raw := (h["pos"] as Vector2).distance_to(prev[0]) / delta
-			speed = lerpf(float(prev[1]), raw, 0.35)
-		_hand_prev[key] = [h["pos"], speed]
-		h["moving"] = speed >= min_speed
-	for key in _hand_prev.keys():
-		if not seen.has(key):
-			_hand_prev.erase(key)
-	return hands
+			pos = (prev[0] as Vector2).lerp(pos, 0.6)   # steady the tip a little
+			speed = lerpf(float(prev[1]), pos.distance_to(prev[0]) / delta, 0.35)
+		_hand_prev[pid] = [pos, speed]
+		seen[pid] = true
+		out.append({"player": pid, "pos": pos, "moving": speed >= min_speed})
+	for k in _hand_prev.keys():
+		if not seen.has(k):
+			_hand_prev.erase(k)
+	return out
 
 
 func _nearest_hand(hands: Array, p: Vector2) -> Vector2:
@@ -518,6 +544,12 @@ func _draw() -> void:
 			_draw_bubble(bc, r * 0.5, bee)
 			draw_line(bc + Vector2(-r, -r) * 0.45, bc + Vector2(r, r) * 0.45, BAD, 7.0 * u)
 			draw_line(bc + Vector2(r, -r) * 0.45, bc + Vector2(-r, r) * 0.45, BAD, 7.0 * u)
+	if _playing():   # fingertip cursors: the only spots that pop
+		var tip_r := float(d("pointer_radius", 0.018)) * view.y
+		for h in _pointers:
+			draw_circle(h["pos"], tip_r * 1.6, Color(UiKit.GOLD, 0.35))
+			draw_circle(h["pos"], tip_r * 0.7, Color.WHITE)
+			draw_arc(h["pos"], tip_r * 1.6, 0.0, TAU, 24, UiKit.GOLD, 3.0 * u)
 	if st != St.IDLE and st != St.DONE:
 		_draw_score(view, u, st == St.SUMMARY)
 

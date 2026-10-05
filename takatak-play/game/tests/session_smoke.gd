@@ -245,6 +245,24 @@ func _run() -> void:
 	check(nb.correct == 1 and nb.wrong == 2 and nb.score == -1,
 		"score: −1 decoy, −1 bee, +1 right → −1 (got %d)" % nb.score)
 	check(nb._flash > 0.5, "wrong pop flashes red")
+	# one pointer per child: the raised hand; both raised → the clearly higher one; none → none
+	var view: Vector2 = nb.get_viewport_rect().size
+	var person := func(ly: float, ry: float) -> Dictionary:
+		return {"id": 7, "active": true, "kp": {
+			"l_elbow": [0.4, 0.5, 0.9], "l_wrist": [0.4, ly, 0.9],
+			"r_elbow": [0.6, 0.5, 0.9], "r_wrist": [0.6, ry, 0.9]}}
+	VisionClient.active_people = [person.call(0.3, 0.7)]            # left up, right hanging
+	var ptrs: Array = nb._find_pointers(0.016, view)
+	check(ptrs.size() == 1 and nb._pointer_side[7] == "l", "only the raised hand points")
+	VisionClient.active_people = [person.call(0.3, 0.28)]           # both up, right barely higher
+	ptrs = nb._find_pointers(0.016, view)
+	check(ptrs.size() == 1 and nb._pointer_side[7] == "l", "still one pointer; no flip for a small difference")
+	VisionClient.active_people = [person.call(0.3, 0.15)]           # right clearly higher
+	ptrs = nb._find_pointers(0.016, view)
+	check(nb._pointer_side[7] == "r", "clearly higher hand takes over")
+	VisionClient.active_people = [person.call(0.7, 0.7)]            # both hanging
+	check(nb._find_pointers(0.016, view).is_empty(), "arms down → no pointer, nothing pops")
+	VisionClient.active_people = []
 	var pool_ids: Array = nb._decoy_pool().map(func(x): return x["id"])
 	check(pool_ids.has("mango") and pool_ids.has("two" if nb.target["id"] != "two" else "one"),
 		"number decoys mix other numbers and fruits")

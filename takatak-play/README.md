@@ -179,8 +179,10 @@ Language modes (centre profile `language_mode`, or `L` in dev builds):
 4. **Score top right: +1 for the asked item, −1 for a wrong pop** (decoy or bee). The score
    can go below 0 (shown in red). A wrong pop also gives a light red flash over the
    screen. Each popped bubble shows "+1" / "−1" and its name. Big score at the end.
-5. Children pop by **reaching**: only a moving hand pops, so bubbles rising past resting
-   hands don't count. 2 / 3 / 4 correct pops (Easy / Medium / Hard) win a round.
+5. **One hand pops**: each child's pointer is the raised hand (wrist above elbow), the
+   clearly higher one if both are up. The other hand never pops. Only the fingertip point
+   touches (no finger keypoints in the pose model: the tip sits just beyond the wrist
+   along the forearm). It must be moving, and a small gold cursor shows it. 2 / 3 / 4 correct pops (Easy / Medium / Hard) win a round.
 6. No luck for 14 s: hint. Bubbles slow down and drift to the hands. After a second
    timeout, a gentle move on.
 
