@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from takatak_vision.config import load_config
 from takatak_vision.gestures import NOSE
@@ -68,7 +69,7 @@ def test_mode_switch_resets_active():
 
 
 def test_smoother_ema_and_face_memory():
-    sm = KeypointSmoother(CFG["smoothing"], CFG["inference"]["min_kp_conf"])
+    sm = KeypointSmoother(dict(CFG["smoothing"], filter="ema"), CFG["inference"]["min_kp_conf"])
     a = NEUTRAL.copy()
     sm.update(a, 0.0)
     b = a.copy()
@@ -80,3 +81,24 @@ def test_smoother_ema_and_face_memory():
     assert sm.update(hidden, 0.2)[NOSE, 2] >= CFG["inference"]["min_kp_conf"]
     late = 0.2 + CFG["smoothing"]["face_memory_s"] + 0.1
     assert sm.update(hidden, late)[NOSE, 2] < CFG["inference"]["min_kp_conf"]
+
+
+def test_one_euro_steady_when_still_and_quick_when_moving():
+    rng = np.random.default_rng(1)
+    sm = KeypointSmoother(CFG["smoothing"], CFG["inference"]["min_kp_conf"])
+    assert sm.mode == "one_euro"
+    base = NEUTRAL.copy()
+    outs = []
+    for k in range(60):                      # still hand, ±3 px detector jitter at 30 fps
+        a = base.copy()
+        a[:, :2] += rng.normal(0, 3, size=(len(a), 2))
+        outs.append(sm.update(a, k / 30)[:, 0])
+    assert np.std(np.array(outs[20:]), axis=0).mean() < 1.5   # jitter cut by half or more
+    # a fast 60 px move: after one frame the filtered point is most of the way there
+    moved = base.copy()
+    moved[:, 0] += 60
+    out = sm.update(moved, 60 / 30)
+    assert (out[:, 0] - base[:, 0]).mean() > 40
+    ema = KeypointSmoother(dict(CFG["smoothing"], filter="ema"), CFG["inference"]["min_kp_conf"])
+    ema.update(base, 0.0)
+    assert (ema.update(moved, 1 / 30)[:, 0] - base[:, 0]).mean() == pytest.approx(30)   # ema lags half

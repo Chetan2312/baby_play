@@ -20,7 +20,7 @@ camera: default                   # default (profile's) | wide | noir | imx500 |
 camera_index: { wide: 0, noir: 1, imx500: 0 }  # fallback if sensor model names can't be matched
 camera_opts:
   main_size: [960, 540]           # display/transport stream (ISP scales; JPEG'd for the game)
-  framerate: 30
+  framerate: 30                   # try 50 for a snappier pointer (camera latency ↓, pose rate ↑) if the Pi keeps up: check ./run.sh debug fps
   auto_brightness_threshold: 60   # camera: auto → mean luma (0-255) below this picks noir
   auto_probe_frames: 15
   controls: {}                    # extra libcamera controls, e.g. { AeMeteringMode: 0 }
@@ -40,7 +40,14 @@ inference:
   pad_value: 114
 
 smoothing:
-  ema_alpha: 0.5
+  # one_euro: smooth when still, almost no lag when moving fast (pointers, popping).
+  # ema: fixed blend (the Phase 2 filter; always trails by about a frame).
+  filter: one_euro
+  one_euro:                       # keypoints are in lores pixels (640 wide)
+    min_cutoff: 1.2               # Hz at rest: lower = steadier when still, more lag
+    beta: 0.04                    # cutoff rise per px/s of speed: higher = less lag on fast moves
+    d_cutoff: 1.0                 # Hz for the speed estimate
+  ema_alpha: 0.5                  # filter: ema
   face_memory_s: 0.5              # keep last confident face keypoints while a hand covers the face
 
 tracker:

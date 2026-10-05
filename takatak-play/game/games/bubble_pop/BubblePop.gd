@@ -25,6 +25,7 @@ const BAKE_PX := 256            # baked bubble texture size
 const BAKE_R := 120.0           # bubble radius inside the baked texture
 const GOOD := Color(0.45, 0.95, 0.45)
 const BAD := Color(1.0, 0.45, 0.4)
+const PREDICT_MAX_S := 0.06     # fingertip glides ahead of the last pose by at most this
 const FLASH_S := 0.45           # wrong-pop red flash
 const FLASH_ALPHA := 0.22
 
@@ -56,7 +57,7 @@ var bubbles: Array = []
 var _floaters: Array = []       # popped item names rising and fading: {pos, text, color, t}
 var _rings: Array = []          # pop rings: {pos, r, t, color}
 var _spawn_t := 0.0
-var _hand_prev: Dictionary = {} # player → [tip pos, smoothed speed px/s]
+var _tips: Dictionary = {}      # player → {pos, vel (px/s), at (s, pose arrival), seq}
 var _pointer_side: Dictionary = {}   # player → "l" | "r" (sticky, see pointer_switch_margin)
 var _pointers: Array = []       # this frame: [{player, pos (px), moving}]
 var _photos: Dictionary = {}    # item id → photo texture
@@ -381,7 +382,9 @@ func _update_effects(delta: float) -> void:
 
 
 ## One fingertip per active child: [{player, pos (screen px), moving}].
-func _find_pointers(delta: float, view: Vector2) -> Array:
+## Smoothing happens once, in the vision service (One Euro filter). Here the tip only
+## glides between poses (≈30/s) with its velocity, so it moves every frame (60/s).
+func _find_pointers(_delta: float, view: Vector2) -> Array:
 	var out: Array = []
 	var reach := float(d("pointer_reach", 0.35))
 	var margin := float(d("pointer_switch_margin", 0.06))
@@ -405,18 +408,25 @@ func _find_pointers(delta: float, view: Vector2) -> Array:
 		if tips.has(other) and tips[other].y < tips[side].y - margin:
 			side = other            # clearly higher: it takes over
 		_pointer_side[pid] = side
-		var pos := VisionClient.to_screen(tips[side], view)
-		var prev = _hand_prev.get(pid, null)
-		var speed := 0.0
-		if prev != null and delta > 0.0:
-			pos = (prev[0] as Vector2).lerp(pos, 0.6)   # steady the tip a little
-			speed = lerpf(float(prev[1]), pos.distance_to(prev[0]) / delta, 0.35)
-		_hand_prev[pid] = [pos, speed]
+		var raw := VisionClient.to_screen(tips[side], view)
+		var now := Time.get_ticks_msec() / 1000.0
+		var tp: Dictionary = _tips.get(pid, {})
+		if tp.is_empty() or str(tp.get("side", "")) != side:
+			tp = {"pos": raw, "vel": Vector2.ZERO, "at": now, "seq": VisionClient.poses_received, "side": side}
+		elif int(tp["seq"]) != VisionClient.poses_received:   # a new pose arrived
+			var dt := maxf(0.005, now - float(tp["at"]))
+			tp["vel"] = (tp["vel"] as Vector2).lerp((raw - (tp["pos"] as Vector2)) / dt, 0.5)
+			tp["pos"] = raw
+			tp["at"] = now
+			tp["seq"] = VisionClient.poses_received
+		_tips[pid] = tp
+		var age := minf(now - float(tp["at"]), PREDICT_MAX_S)
+		var pos: Vector2 = tp["pos"] + (tp["vel"] as Vector2) * age
 		seen[pid] = true
-		out.append({"player": pid, "pos": pos, "moving": speed >= min_speed})
-	for k in _hand_prev.keys():
+		out.append({"player": pid, "pos": pos, "moving": (tp["vel"] as Vector2).length() >= min_speed})
+	for k in _tips.keys():
 		if not seen.has(k):
-			_hand_prev.erase(k)
+			_tips.erase(k)
 	return out
 
 

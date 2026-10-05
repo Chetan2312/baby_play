@@ -196,6 +196,14 @@ All of it is tunable in `content/games/bubble_pop.yaml` (`levels:`).
 
 ## Performance notes (Pi 5)
 
+- Keypoints are smoothed once, in the vision service, with a One Euro filter (`smoothing`
+  in `vision/config.yaml`): steady when still, almost no lag when moving. Bubble Pop's
+  fingertip glides between poses with its velocity, so it moves every frame.
+- For a snappier pointer try `camera_opts.framerate: 50` and watch the fps in
+  `./run.sh debug` (the Pi must keep up with pose decoding at that rate).
+- Finger tracking feasibility: `vision/tools/hand_probe.py` (dev only) measures hand size
+  in pixels at play distance and lists installed hand-landmark models.
+
 - Camera JPEG decoding runs on a worker thread, not the game's main thread.
 - Bubble looks are drawn once into textures (one draw per bubble per frame).
 - Celebration stars reuse one shape (no per-frame allocations), max 450 particles.

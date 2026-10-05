@@ -129,29 +129,63 @@ class Tracker:
         return [t for t in self.tracks if t.active and t.visible]
 
 
+def _one_euro_alpha(cutoff, dt):
+    tau = 1.0 / (2.0 * np.pi * cutoff)
+    return 1.0 / (1.0 + tau / dt)
+
+
 class KeypointSmoother:
-    """EMA on keypoints + short memory of face points hidden by a hand."""
+    """Keypoint filter + short memory of face points hidden by a hand.
+
+    filter one_euro (default): One Euro filter (Casiez et al. 2012) per coordinate. The
+    cutoff rises with speed, so a still hand is steady and a fast hand has almost no lag.
+    filter ema: fixed blend with ema_alpha.
+    """
 
     def __init__(self, scfg, min_conf):
-        self.alpha = scfg["ema_alpha"]
+        self.mode = scfg.get("filter", "ema")
+        self.alpha = scfg.get("ema_alpha", 0.5)
+        oe = scfg.get("one_euro") or {}
+        self.min_cutoff = float(oe.get("min_cutoff", 1.2))
+        self.beta = float(oe.get("beta", 0.04))
+        self.d_cutoff = float(oe.get("d_cutoff", 1.0))
         self.face_memory_s = scfg["face_memory_s"]
         self.min_conf = min_conf
         self.prev = None
+        self.prev_t = None
+        self.dx = None                # filtered speed per keypoint (px/s), one_euro
         self.last_good = {}
+
+    def _filter(self, i, raw, now):
+        prev = self.prev[i, :2]
+        if self.mode != "one_euro":
+            return self.alpha * raw + (1 - self.alpha) * prev
+        dt = max(1e-3, now - self.prev_t)
+        dx = (raw - prev) / dt
+        a_d = _one_euro_alpha(self.d_cutoff, dt)
+        self.dx[i] = a_d * dx + (1 - a_d) * self.dx[i]
+        cutoff = self.min_cutoff + self.beta * np.abs(self.dx[i])
+        a = 1.0 / (1.0 + (1.0 / (2.0 * np.pi * cutoff)) / dt)
+        return a * raw + (1 - a) * prev
 
     def update(self, kp, now):
         kp = np.asarray(kp, dtype=np.float64)
         out = kp.copy()
+        if self.dx is None:
+            self.dx = np.zeros((len(kp), 2))
         for i in range(len(kp)):
             if kp[i, 2] >= self.min_conf:
-                if self.prev is not None and self.prev[i, 2] >= self.min_conf:
-                    out[i, :2] = self.alpha * kp[i, :2] + (1 - self.alpha) * self.prev[i, :2]
+                if self.prev is not None and self.prev[i, 2] >= self.min_conf and self.prev_t is not None:
+                    out[i, :2] = self._filter(i, kp[i, :2], now)
+                else:
+                    self.dx[i] = 0.0
                 self.last_good[i] = (out[i].copy(), now)
             elif i in FACE and i in self.last_good:
                 saved, t = self.last_good[i]
                 if now - t <= self.face_memory_s:
                     out[i] = saved
         self.prev = out
+        self.prev_t = now
         return out
 
 
