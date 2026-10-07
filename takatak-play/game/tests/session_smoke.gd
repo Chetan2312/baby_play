@@ -180,6 +180,71 @@ func lane_dash_checks() -> void:
 	check(ld.st == ld.St.SUMMARY and ld.game_over, "last life gone → game over")
 	VisionClient.active_people = []
 	await press("back", 0.4)
+	await lane_dash_endless_checks(body)
+
+
+## Non-stop level: no song end, ramps up, hearts every 15 points, class best score.
+func lane_dash_endless_checks(body: Callable) -> void:
+	GameManager.pick_game("lane_dash", "endless")
+	await wait_game("lane_dash")
+	var ld = GameManager.current_game
+	check(ld != null and ld.endless and ld.lives == 3 and ld.best == 0, "ninja dash non-stop: 3 lives, no best yet")
+	check(not ld.plan_spawn(100000).is_empty() or not ld.plan_spawn(100002).is_empty(), "non-stop: no song end")
+	var bpm0: float = ld.bpm
+	var share0: float = ld.dr("square_share")
+	for b in range(1, 16 * 200):
+		ld._on_beat(b)
+	check(ld.bpm > bpm0 and ld.bpm <= 160.0 and ld.dr("square_share") > share0 and ld.dr("square_share") <= 0.5,
+		"non-stop: faster and harder, up to the caps")
+	# fairness still holds with hearts in the mix, at top speed
+	ld.objects.clear()
+	var arrivals := {0: [], 1: []}
+	var hearts := {0: [], 1: []}
+	var fair := true
+	for b in range(4000, 7000):
+		if b % 40 == 0:
+			ld._heart_pending = true
+		for o in ld.plan_spawn(b):
+			var arr: int = b + 4
+			if o["kind"] == "square":
+				for other in arrivals[1 - o["lane"]]:
+					fair = fair and absf(arr - other) >= 2
+				for h in hearts[o["lane"]]:
+					fair = fair and absf(arr - h) >= 2
+				arrivals[o["lane"]].append(arr)
+			elif o["kind"] == "heart":
+				for other in arrivals[o["lane"]]:
+					fair = fair and absf(arr - other) >= 2
+				hearts[o["lane"]].append(arr)
+	check(fair and not (hearts[0] + hearts[1]).is_empty(), "hearts drop, never next to a square")
+	for i in 120:
+		if ld.st == ld.St.PLAY:
+			break
+		await wait(0.1)
+	ld.lvl["spawn_every_beats"] = 100000
+	ld.lvl["dense_after_beats"] = 1 << 40
+	ld.objects.clear()
+	ld._heart_pending = false
+	VisionClient.active_people = [body.call(0.3)]
+	await wait(0.2)
+	ld.score = 14
+	ld.spawn_object("circle", 0, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.score == 15 and ld._heart_pending and ld._next_life_at == 30, "15 points → a heart is coming")
+	ld._heart_pending = false
+	ld.spawn_object("heart", 0, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.lives == 4 and ld.lives_won == 1, "caught the heart → +1 life")
+	ld.spawn_object("heart", 1, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.lives == 4 and ld.st == ld.St.PLAY, "missed heart → nothing happens, play on")
+	ld.lives = 1
+	ld.spawn_object("square", 0, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.st == ld.St.SUMMARY and ld.game_over and ld.new_best and Stats.best("lane_dash:endless") == 15,
+		"non-stop game over → new class best")
+	VisionClient.active_people = []
+	await press("back", 0.4)
 
 
 func step_id() -> String:

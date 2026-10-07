@@ -240,6 +240,15 @@ Tunable in `content/games/finger_math.yaml`.
 | Easy | 80 bpm | 64 beats (~48 s) | 30 % | 3 |
 | Medium | 95 bpm | 96 beats (~60 s) | 40 %, with circle pairs | 2 |
 | Hard | 110 bpm | 128 beats (~70 s) | 45 %, every beat | 1 (one hit = game over) |
+| Non-stop | 80 → 160 bpm | no end, no score limit | 30 → 50 %, every beat after 160 beats | 3 + hearts |
+
+Non-stop: every 16 beats the tempo goes up 3 bpm and squares / circle pairs get more
+common, until the caps; the game ends only when the lives run out. Every 15 points a pink
+heart drops in one lane (never right next to a square): catch it = +1 life, miss it =
+nothing. The bar under the hearts fills towards the next heart; "Speed n" shows the ramp.
+The class best score is kept in `<usage dir>/bests.json` (just a number) and a new best
+gets "NEW BEST!" and confetti. `life_every_points` and `max_lives` (0 = no limit) are in
+the yaml.
 
 Tunable in `content/games/lane_dash.yaml` (`lives: 1` everywhere for one-hit game over).
 

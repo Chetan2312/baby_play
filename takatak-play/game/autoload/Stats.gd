@@ -5,6 +5,7 @@ extends Node
 ##    "faults": [{"name", "count"}], "cap_override"}
 ## Counts only. No images, no audio, no names, nothing per child: "successes" are per
 ## round, not per child.
+## Best scores (whole class, all time) → <usage dir>/bests.json: {"lane_dash:endless": 42}.
 ##
 ## Usage dir: --usage-dir=PATH, else /var/lib/takatak/usage when writable (install.sh
 ## creates it), else user://usage. Clock before MIN_VALID_YEAR (no RTC battery, no
@@ -145,6 +146,37 @@ func end_game(game_id: String, result: Dictionary) -> void:
 		var e := day_entry()
 		e["movement_minutes"] = snappedf(float(e["movement_minutes"]) + float(result.get("duration_s", 0.0)) / 60.0, 0.1)
 	_save()
+
+
+## Class best score for key (e.g. "lane_dash:endless"); 0 when none yet.
+func best(key: String) -> int:
+	return int(_load_bests().get(key, 0))
+
+
+## Records score as the new best when it beats the old one; true = new best.
+func submit_best(key: String, score: int) -> bool:
+	var bests := _load_bests()
+	if score <= int(bests.get(key, 0)):
+		return false
+	bests[key] = score
+	var p := dir.path_join("bests.json")
+	var f := FileAccess.open(p + ".tmp", FileAccess.WRITE)
+	if f == null:
+		push_warning("usage: cannot write " + p)
+		return true
+	f.store_string(JSON.stringify(bests, " "))
+	f.close()
+	DirAccess.rename_absolute(p + ".tmp", p)
+	return true
+
+
+func _load_bests() -> Dictionary:
+	var p := dir.path_join("bests.json")
+	if not FileAccess.file_exists(p):
+		return {}
+	var f := FileAccess.open(p, FileAccess.READ)
+	var d = JSON.parse_string(f.get_as_text()) if f != null else null
+	return d if d is Dictionary else {}
 
 
 func fault(fault_name: String) -> void:

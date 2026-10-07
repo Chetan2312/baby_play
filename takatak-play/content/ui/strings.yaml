@@ -74,6 +74,10 @@ level_title:          {mr: "किती अवघड?", en: "How hard?", review
 level_easy:           {mr: "सोपे", hi: "आसान", en: "Easy", reviewed: false}
 level_medium:         {mr: "मध्यम", hi: "मध्यम", en: "Medium", reviewed: false}
 level_hard:           {mr: "कठीण", hi: "कठिन", en: "Hard", reviewed: false}
+level_endless:        {mr: "न थांबता", hi: "लगातार", en: "Non-stop", reviewed: false}
+best_score:           {mr: "सर्वोत्तम", hi: "सबसे अच्छा", en: "Best", reviewed: false}
+new_best:             {mr: "नवीन विक्रम!", hi: "नया रिकॉर्ड!", en: "NEW BEST!", reviewed: false}
+speed_title:          {mr: "वेग", hi: "रफ़्तार", en: "Speed", reviewed: false}
 score_title:          {mr: "गुण", en: "Score", reviewed: false}
 perfect_title:        {mr: "परफेक्ट!", hi: "परफेक्ट!", en: "PERFECT!", reviewed: false}
 game_over_title:      {mr: "खेळ संपला", hi: "खेल खत्म", en: "GAME OVER", reviewed: false}

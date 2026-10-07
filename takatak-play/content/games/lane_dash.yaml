@@ -11,6 +11,8 @@ go_line: dash_go
 crash_line: dash_crash
 game_over_line: dash_game_over
 win_line: dash_win
+life_line: dash_life
+best_line: dash_best
 perfect_line: bubble_perfect
 session_level: { toddler: easy, kid: medium }
 
@@ -28,9 +30,32 @@ settings:
   summary_s: 5.0
   perfect_s: 7.0
   music_volume_db: -6.0
+  min_gap_s: 0.6                # …and never less than this many seconds to switch sides
   # optional licensed music instead of the synth beat: music: res-or-content path, music_bpm: n
 
 levels:
   easy:   { bpm: 80,  song_beats: 64,  travel_beats: 4, spawn_every_beats: 2, square_share: 0.3,  pair_share: 0.0, lives: 3 }
   medium: { bpm: 95,  song_beats: 96,  travel_beats: 4, spawn_every_beats: 2, square_share: 0.4,  pair_share: 0.3, lives: 2 }
   hard:   { bpm: 110, song_beats: 128, travel_beats: 4, spawn_every_beats: 1, square_share: 0.45, pair_share: 0.4, lives: 1 }
+  # Non-stop: no song end, no score limit; it keeps getting faster until the lives run out.
+  # Every bpm ramp also raises square_share / pair_share by *_ramp (up to *_max); from
+  # dense_after_beats on, something drops on every beat. Hearts: every life_every_points
+  # points a heart drops in one lane, catch it = +1 life; max_lives 0 = no limit.
+  endless:
+    endless: true
+    bpm: 80
+    bpm_ramp: 3
+    ramp_every_beats: 16
+    bpm_max: 160
+    travel_beats: 4
+    spawn_every_beats: 2
+    dense_after_beats: 160
+    square_share: 0.3
+    square_share_ramp: 0.02
+    square_share_max: 0.5
+    pair_share: 0.1
+    pair_share_ramp: 0.03
+    pair_share_max: 0.45
+    lives: 3
+    life_every_points: 15
+    max_lives: 0

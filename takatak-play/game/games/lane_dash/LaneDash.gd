@@ -11,6 +11,10 @@ extends "res://core/BaseGame.gd"
 ## The song speeds up as it goes. Finish it to win; win without a crash or a missed circle
 ## = perfect (fireworks + trophy). Reaction time: a square appears in your lane → you leave
 ## the lane; the fastest and average are shown at the end.
+## Non-stop level (endless: true): no song end, no score limit. Tempo, squares and pairs
+## keep ramping up (to bpm_max / *_max) until the lives run out; the class best score is
+## kept (Stats.best). Every life_every_points points a heart drops in one lane: catch it
+## = +1 life (up to max_lives, 0 = no limit), miss it = nothing.
 ## Tunables: content/games/lane_dash.yaml.
 
 const UiKit = preload("res://core/UiKit.gd")
@@ -18,6 +22,8 @@ const GameFx = preload("res://core/GameFx.gd")
 const BeatSynth = preload("res://core/BeatSynth.gd")
 const GOOD := Color(0.45, 0.95, 0.45)
 const BAD := Color(1.0, 0.35, 0.3)
+const HEART := Color(1.0, 0.35, 0.6)
+const HUD_HEARTS := 5           # more lives than this: one heart + "×n"
 const FLASH_S := 0.5
 const BASS := [130.81, 130.81, 220.0, 220.0, 174.61, 174.61, 196.0, 196.0]   # C C A A F F G G
 
@@ -32,7 +38,7 @@ var lvl: Dictionary = {}
 var bpm := 80.0
 var beat_pos := 0.0             # continuous song position in beats (countdown included)
 var _half_beat := -1            # last half-beat a music step was played for
-var objects: Array = []         # {kind: circle|square, lane, arrive (beat), spawned_ms, threat, reacted}
+var objects: Array = []         # {kind: circle|square|heart, lane, arrive (beat), spawned_ms, threat, reacted}
 var lane := 0                   # the child's lane: 0 left · 1 right (screen sides)
 var _lane_since_ms := 0
 var score := 0
@@ -52,6 +58,14 @@ var _player_i := 0
 var _snd := {}
 var _bursts: Array = []         # smash rings {pos, r, t, color}
 var _t := 0.0
+var endless := false
+var _ramp_steps := 0            # tempo ramps so far (non-stop level difficulty)
+var _last_heart := [-100.0, -100.0]
+var _heart_pending := false
+var _next_life_at := 0          # score that drops the next heart; 0 = no hearts
+var lives_won := 0
+var best := 0
+var new_best := false
 
 
 func _init() -> void:
@@ -73,6 +87,10 @@ func setup(cfg: Dictionary) -> void:
 	lvl = levels.get(level, {})
 	bpm = float(d("bpm", 80))
 	lives = int(d("lives", 3))
+	endless = bool(d("endless", false))
+	_next_life_at = int(d("life_every_points", 0))
+	if endless:
+		best = Stats.best(_best_key())
 	_snd = {"kick": BeatSynth.kick(), "hat": BeatSynth.hat(), "clap": BeatSynth.clap()}
 	for f in BASS:
 		if not _snd.has(f):
@@ -87,6 +105,23 @@ func setup(cfg: Dictionary) -> void:
 
 func d(key: String, fallback = 0.0):
 	return lvl.get(key, settings.get(key, fallback))
+
+
+## A setting that grows on the non-stop level: key + key_ramp per tempo ramp, up to key_max.
+func dr(key: String, fallback := 0.0) -> float:
+	var v := float(d(key, fallback))
+	if endless:
+		v = minf(v + float(d(key + "_ramp", 0.0)) * _ramp_steps, float(d(key + "_max", 1.0)))
+	return v
+
+
+func _best_key() -> String:
+	return game_id + ":" + level
+
+
+## Beats needed to switch sides: min_gap_beats, but never less than min_gap_s seconds.
+func _gap() -> float:
+	return maxf(float(d("min_gap_beats", 2)), float(d("min_gap_s", 0.0)) * bpm / 60.0)
 
 
 func start() -> void:
@@ -133,21 +168,31 @@ func _music_step(half: int) -> void:
 
 ## What drops on beat n (arriving travel_beats later): [] or [{kind, lane}, …].
 ## Fair: never squares in both lanes together, min_gap_beats between squares in different
-## lanes, and a square never arrives together with a square in the other lane.
+## lanes, and a square never arrives together with a square in the other lane. A pending
+## heart replaces the next drop, in a lane with no square near it.
 func plan_spawn(n: int) -> Array:
 	var every := maxi(1, int(d("spawn_every_beats", 2)))
+	if endless and n >= int(d("dense_after_beats", 1 << 30)):
+		every = 1
 	var song := int(d("song_beats", 64))
 	var travel := float(d("travel_beats", 4))
-	if n % every != 0 or n + travel > song:
+	if n % every != 0 or (not endless and n + travel > song):
 		return []
 	var arrive := n + travel
 	var out: Array = []
 	var l := randi() % 2
-	var kind := "square" if randf() < float(d("square_share", 0.3)) else "circle"
+	if _heart_pending:
+		for k in 2:
+			var hl := (l + k) % 2
+			if absf(arrive - float(_last_square[hl])) >= _gap():
+				_heart_pending = false
+				_last_heart[hl] = arrive
+				return [{"kind": "heart", "lane": hl}]
+	var kind := "square" if randf() < dr("square_share", 0.3) else "circle"
 	if kind == "square" and not _square_ok(l, arrive):
 		kind = "circle"
 	out.append({"kind": kind, "lane": l})
-	if kind == "square" and randf() < float(d("pair_share", 0.0)):
+	if kind == "square" and randf() < dr("pair_share", 0.0):
 		out.append({"kind": "circle", "lane": 1 - l})   # dodge INTO a circle
 	for o in out:
 		if o["kind"] == "square":
@@ -156,7 +201,7 @@ func plan_spawn(n: int) -> Array:
 
 
 func _square_ok(l: int, arrive: float) -> bool:
-	return absf(arrive - float(_last_square[1 - l])) >= float(d("min_gap_beats", 2))
+	return absf(arrive - float(_last_square[1 - l])) >= _gap() and absf(arrive - float(_last_heart[l])) >= _gap()
 
 
 func spawn_object(kind: String, l: int, arrive: float) -> Dictionary:
@@ -245,7 +290,7 @@ func _advance(delta: float) -> void:
 		st = St.PLAY
 		AudioDirector.say(str(content.get("go_line", "")), Settings.prompt_langs(0))
 	_resolve()
-	if st == St.PLAY and beat_pos >= float(d("song_beats", 64)) and objects.is_empty():
+	if st == St.PLAY and not endless and beat_pos >= float(d("song_beats", 64)) and objects.is_empty():
 		_summary(false)
 
 
@@ -254,7 +299,8 @@ func _on_beat(b: int) -> void:
 		return
 	var every := int(d("ramp_every_beats", 16))
 	if b > 0 and every > 0 and b % every == 0:
-		bpm += float(d("bpm_ramp", 0))
+		bpm = minf(bpm + float(d("bpm_ramp", 0)), float(d("bpm_max", 1000)))
+		_ramp_steps += 1
 	for o in plan_spawn(b):
 		spawn_object(o["kind"], o["lane"], b + float(d("travel_beats", 4)))
 
@@ -271,13 +317,17 @@ func _resolve() -> void:
 		objects.remove_at(i)
 		var mine := int(o["lane"]) == lane
 		var pos := Vector2(_lane_x(int(o["lane"]), 1.0) * view.x, float(d("hit_y", 0.86)) * view.y)
-		if o["kind"] == "circle":
+		if o["kind"] == "heart":
+			if mine:
+				_extra_life(pos)
+		elif o["kind"] == "circle":
 			if mine:
 				score += 1
 				AudioDirector.sfx("pop")
 				AudioDirector.sfx("sparkle")
 				GameManager.praise.burst(pos, 26, 600.0)
 				_bursts.append({"pos": pos, "r": view.y * 0.08, "t": 0.0, "color": GOOD})
+				_check_life_drop()
 			else:
 				missed += 1
 		elif mine:
@@ -287,6 +337,25 @@ func _resolve() -> void:
 		else:
 			dodged += 1
 			AudioDirector.sfx("whoosh")
+
+
+## Every life_every_points points: a heart drops next (not when lives are already at max).
+func _check_life_drop() -> void:
+	if _next_life_at <= 0 or score < _next_life_at:
+		return
+	_next_life_at += int(d("life_every_points", 0))
+	var cap := int(d("max_lives", 0))
+	if cap <= 0 or lives < cap:
+		_heart_pending = true
+
+
+func _extra_life(pos: Vector2) -> void:
+	lives += 1
+	lives_won += 1
+	AudioDirector.sfx("success")
+	GameManager.praise.burst(pos, 40, 750.0)
+	_bursts.append({"pos": pos, "r": get_viewport_rect().size.y * 0.1, "t": 0.0, "color": HEART})
+	AudioDirector.say(str(content.get("life_line", "")), Settings.prompt_langs(0))
 
 
 func _crash(pos: Vector2) -> void:
@@ -308,16 +377,23 @@ func _summary(over: bool) -> void:
 	st_time = 0.0
 	game_over = over
 	objects.clear()
-	perfect = not over and crashes == 0 and missed == 0 and score > 0
+	perfect = not endless and not over and crashes == 0 and missed == 0 and score > 0
+	if endless:
+		new_best = Stats.submit_best(_best_key(), score)
+		best = maxi(best, score)
 	GameManager.mascot.go_spotlight()
 	GameManager.mascot.play("big_cheer" if not over else "clap", float(d("perfect_s", 7.0)) if perfect else 3.0)
-	if not over:
-		GameManager.praise.rain(220 if perfect else 100)
+	if not over or new_best:
+		GameManager.praise.rain(220 if perfect or new_best else 100)
 		AudioDirector.sfx("success")
 	var line := "game_over_line" if over else ("perfect_line" if perfect else "win_line")
+	if new_best:
+		line = "best_line"
+	elif endless and not over:
+		line = "game_over_line"   # stopped early on the non-stop level: no "song finished"
 	AudioDirector.say(str(content.get(line, "")), Settings.prompt_langs(0))
 	Stats.record_round(game_id, {"result": "game_over" if over else "success", "level": level, "score": score,
-		"crashes": crashes, "missed": missed})
+		"crashes": crashes, "missed": missed, "lives_won": lives_won})
 
 
 var _firework_t := 0.0
@@ -341,6 +417,7 @@ func _finish_game() -> void:
 		p.stop()
 	finish({"game": game_id, "rounds": 1, "successes": 0 if game_over else 1, "score": score, "crashes": crashes,
 		"missed": missed, "dodged": dodged, "game_over": game_over, "perfect": perfect, "level": level,
+		"lives_won": lives_won, "best": best, "new_best": new_best,
 		"reaction_fastest_s": reactions.min() if not reactions.is_empty() else -1.0})
 
 
@@ -427,6 +504,10 @@ func _draw_object(o: Dictionary, view: Vector2, u: float) -> void:
 	var p := _depth(o)
 	var c := Vector2(_lane_x(int(o["lane"]), p) * view.x, _depth_y(p, view))
 	var r := lerpf(0.012, 0.075, p) * view.y
+	if o["kind"] == "heart":
+		draw_circle(c, r * 1.4, Color(HEART, 0.3 + 0.15 * sin(_t * 10.0)))
+		_draw_heart(c, r / 22.0 * (1.0 + 0.1 * sin(_t * 8.0)), HEART)
+		return
 	if o["kind"] == "circle":
 		draw_circle(c, r * 1.25, Color(GOOD, 0.25))
 		draw_circle(c, r, Color(0.3, 0.85, 0.4))
@@ -454,20 +535,40 @@ func _draw_player(view: Vector2, u: float) -> void:
 	draw_circle(c, r * 0.18, UiKit.OUTLINE)
 
 
-## Lives (hearts) and song progress, top left.
-func _draw_hud(view: Vector2, u: float, _font: Font) -> void:
+## A heart centred on c; s = scale (1 → ~44 px wide).
+func _draw_heart(c: Vector2, s: float, col: Color) -> void:
+	draw_circle(c + Vector2(-9, -6) * s, 13.0 * s, col)
+	draw_circle(c + Vector2(9, -6) * s, 13.0 * s, col)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(-21, -2) * s, c + Vector2(21, -2) * s, c + Vector2(0, 22) * s]), col)
+
+
+## Lives (hearts), then song progress, or on the non-stop level: the way to the next heart
+## and the speed. Top left.
+func _draw_hud(view: Vector2, u: float, font: Font) -> void:
 	var x := view.x * 0.05
 	var y := view.y * 0.08
-	for k in int(d("lives", 3)):
-		var c := Vector2(x + k * 64.0 * u + 24.0 * u, y)
-		var col := BAD if k < lives else Color(1, 1, 1, 0.25)
-		draw_circle(c + Vector2(-9, -6) * u, 13.0 * u, col)
-		draw_circle(c + Vector2(9, -6) * u, 13.0 * u, col)
-		draw_colored_polygon(PackedVector2Array([c + Vector2(-21, -2) * u, c + Vector2(21, -2) * u, c + Vector2(0, 22) * u]), col)
+	var slots := maxi(int(d("lives", 3)), lives)
+	if slots > HUD_HEARTS:
+		_draw_heart(Vector2(x + 24.0 * u, y), u, BAD)
+		draw_string_outline(font, Vector2(x + 56.0 * u, y + 16.0 * u), "× %d" % lives, HORIZONTAL_ALIGNMENT_LEFT, -1, int(44 * u), int(6 * u), UiKit.OUTLINE)
+		draw_string(font, Vector2(x + 56.0 * u, y + 16.0 * u), "× %d" % lives, HORIZONTAL_ALIGNMENT_LEFT, -1, int(44 * u), Color.WHITE)
+	else:
+		for k in slots:
+			_draw_heart(Vector2(x + k * 64.0 * u + 24.0 * u, y), u, BAD if k < lives else Color(1, 1, 1, 0.25))
 	var bar := Rect2(x, y + 36.0 * u, view.x * 0.25, 14.0 * u)
 	draw_rect(bar, Color(0, 0, 0, 0.5))
+	var every := int(d("life_every_points", 0))
 	var f := clampf(beat_pos / float(d("song_beats", 64)), 0.0, 1.0)
-	draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), UiKit.GOLD)
+	var col := UiKit.GOLD
+	if endless and every > 0:
+		f = clampf(1.0 - float(_next_life_at - score) / every, 0.0, 1.0)
+		col = HEART
+	draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), col)
+	if endless:
+		var txt := "%s %d" % [ContentDB.ui_text("speed_title", Settings.primary_language), _ramp_steps + 1]
+		var pos := Vector2(bar.end.x + 16.0 * u, bar.end.y + 4.0 * u)
+		draw_string_outline(font, pos, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, int(36 * u), int(5 * u), UiKit.OUTLINE)
+		draw_string(font, pos, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, int(36 * u), UiKit.GOLD)
 
 
 func _draw_summary(view: Vector2, u: float, font: Font) -> void:
@@ -478,6 +579,11 @@ func _draw_summary(view: Vector2, u: float, font: Font) -> void:
 		var fs := int(96 * u)
 		draw_string_outline(font, Vector2(0, view.y * 0.3), title, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, int(10 * u), UiKit.OUTLINE)
 		draw_string(font, Vector2(0, view.y * 0.3), title, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, BAD)
+	if endless:   # class best score, "NEW BEST!" when beaten
+		var txt := UiKit.ui_both("new_best") if new_best else "%s: %d" % [UiKit.ui_both("best_score"), best]
+		var fs := int((64 if new_best else 44) * u * (1.0 + (0.06 * sin(_t * 6.0) if new_best else 0.0)))
+		draw_string_outline(font, Vector2(0, view.y * 0.66), txt, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, int(7 * u), UiKit.OUTLINE)
+		draw_string(font, Vector2(0, view.y * 0.66), txt, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, UiKit.GOLD)
 	if not reactions.is_empty():
 		var fastest: float = reactions.min()
 		var avg := 0.0
@@ -486,8 +592,8 @@ func _draw_summary(view: Vector2, u: float, font: Font) -> void:
 		avg /= reactions.size()
 		var txt := "%s %.1f s  ·  %s %.1f s" % [UiKit.ui_both("reaction_fastest"), fastest, UiKit.ui_both("reaction_average"), avg]
 		var fs := int(36 * u)
-		draw_string_outline(font, Vector2(0, view.y * 0.72), txt, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, int(6 * u), UiKit.OUTLINE)
-		draw_string(font, Vector2(0, view.y * 0.72), txt, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, Color.WHITE)
+		draw_string_outline(font, Vector2(0, view.y * 0.76), txt, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, int(6 * u), UiKit.OUTLINE)
+		draw_string(font, Vector2(0, view.y * 0.76), txt, HORIZONTAL_ALIGNMENT_CENTER, view.x, fs, Color.WHITE)
 
 
 # ---- BaseGame hooks ------------------------------------------------------------

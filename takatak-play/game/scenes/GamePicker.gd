@@ -238,6 +238,15 @@ func _title(card: String) -> Dictionary:
 
 ## Simple drawn picture per game; unknown games get a star.
 func _draw_icon(card: String, c: Vector2, r: float) -> void:
+	if card == "level:endless":   # an infinity sign with a heart
+		for side in [-1, 1]:
+			draw_arc(c + Vector2(side * r * 0.36, 0), r * 0.32, 0.0, TAU, 40, UiKit.GOLD, r * 0.12, true)
+		var hc := c + Vector2(0, -r * 0.62 + sin(_t * 3.0) * r * 0.05)
+		var hs := r / 100.0
+		draw_circle(hc + Vector2(-9, -6) * hs, 13.0 * hs, Color(1.0, 0.35, 0.6))
+		draw_circle(hc + Vector2(9, -6) * hs, 13.0 * hs, Color(1.0, 0.35, 0.6))
+		draw_colored_polygon(PackedVector2Array([hc + Vector2(-21, -2) * hs, hc + Vector2(21, -2) * hs, hc + Vector2(0, 22) * hs]), Color(1.0, 0.35, 0.6))
+		return
 	if card.begins_with("level:"):   # 1 / 2 / 3 stars
 		var n: int = {"easy": 1, "medium": 2, "hard": 3}.get(card.get_slice(":", 1), 1)
 		for k in n:
