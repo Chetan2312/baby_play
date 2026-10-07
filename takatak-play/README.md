@@ -51,6 +51,7 @@ game/                       Godot 4 project (open this folder in the editor; Com
   scenes/                   Main, Idle, Supervisor (menu), GamePicker (free play), DevaTest, StatusOverlay
   games/simon_says/         Simon Says
   games/bubble_pop/         Bubble Pop (fruit photos / numbers १–५)
+  games/finger_math/        Finger Math (answer by showing fingers)
   tests/                    SessionSmoke: headless session-flow test (./run.sh smoke)
 content/
   script/lines.csv          every spoken line × mr/hi/en (DRAFT text: needs native review)
@@ -193,6 +194,29 @@ Language modes (centre profile `language_mode`, or `L` in dev builds):
 | Hard | 8 | 8 | 9 | fast | 20 % | all |
 
 All of it is tunable in `content/games/bubble_pop.yaml` (`levels:`).
+
+## How Finger Math works (5–6 years)
+
+1. A question with pictures to count, in the left column, spoken aloud ("तीन अधिक तीन…
+   किती झाले? बोटांनी दाखव!").
+2. The child **answers with fingers**, one or both hands: all raised fingers of the
+   playing child are added up (3 + 3 can be 5+1, 3+3, 2+4 …). Each tracked hand shows its
+   count; the total is shown big on the right.
+3. A total held for 1 s locks in (a gold ring fills). Right: +1, praise, the answer
+   spoken. Wrong: −1, light red flash, "Count again!"; the same wrong total counts once,
+   until the fingers change.
+4. 12 s without an answer: the pictures get numbered 1, 2, 3 … After 30 s the answer is
+   shown and spoken (no minus point). Perfect game: fireworks and trophy.
+5. Needs hand tracking (see Performance notes). Without it the game says it can't see the
+   hands; the worker can skip with next.
+
+| Level | Questions | Answers |
+|---|---|---|
+| Easy | counting: "How many?" | 1–5 |
+| Medium | counting + adding within 5 | 1–5 |
+| Hard | adding and subtracting within 10 (taken-away pictures crossed out) | 1–10 |
+
+Tunable in `content/games/finger_math.yaml`.
 
 ## Performance notes (Pi 5)
 

@@ -272,3 +272,48 @@ bubble_point_intro,transition,1,en,Pop with one finger!,playful,false,false
 bubble_perfect,praise,1,mr,वा! एकही चूक नाही! तुम्ही चॅम्पियन आहात!,excited,false,false
 bubble_perfect,praise,1,hi,वाह! एक भी गलती नहीं! तुम चैंपियन हो!,excited,false,false
 bubble_perfect,praise,1,en,Wow! Not a single mistake! You're a champion!,excited,false,false
+word_six,word,1,mr,सहा,clear,false,false
+word_six,word,1,hi,छह,clear,false,false
+word_six,word,1,en,Six,clear,false,false
+word_seven,word,1,mr,सात,clear,false,false
+word_seven,word,1,hi,सात,clear,false,false
+word_seven,word,1,en,Seven,clear,false,false
+word_eight,word,1,mr,आठ,clear,false,false
+word_eight,word,1,hi,आठ,clear,false,false
+word_eight,word,1,en,Eight,clear,false,false
+word_nine,word,1,mr,नऊ,clear,false,false
+word_nine,word,1,hi,नौ,clear,false,false
+word_nine,word,1,en,Nine,clear,false,false
+word_ten,word,1,mr,दहा,clear,false,false
+word_ten,word,1,hi,दस,clear,false,false
+word_ten,word,1,en,Ten,clear,false,false
+math_intro,transition,1,mr,"चला, गणित खेळूया! उत्तर बोटांनी दाखवा!",excited,false,false
+math_intro,transition,1,hi,"चलो, गणित खेलें! जवाब उंगलियों से दिखाओ!",excited,false,false
+math_intro,transition,1,en,Let's do maths! Show the answer with your fingers!,excited,false,false
+math_plus,word,1,mr,अधिक,clear,false,false
+math_plus,word,1,hi,और,clear,false,false
+math_plus,word,1,en,plus,clear,false,false
+math_minus,word,1,mr,वजा,clear,false,false
+math_minus,word,1,hi,घटा,clear,false,false
+math_minus,word,1,en,minus,clear,false,false
+math_q_count,prompt,1,mr,किती आहेत? बोटांनी दाखव!,playful,false,false
+math_q_count,prompt,1,hi,कितने हैं? उंगलियों से दिखाओ!,playful,false,false
+math_q_count,prompt,1,en,How many? Show me with your fingers!,playful,false,false
+math_q_add,prompt,1,mr,किती झाले? बोटांनी दाखव!,playful,false,false
+math_q_add,prompt,1,hi,कितने हुए? उंगलियों से दिखाओ!,playful,false,false
+math_q_add,prompt,1,en,How many altogether? Show me with your fingers!,playful,false,false
+math_q_sub,prompt,1,mr,किती उरले? बोटांनी दाखव!,playful,false,false
+math_q_sub,prompt,1,hi,कितने बचे? उंगलियों से दिखाओ!,playful,false,false
+math_q_sub,prompt,1,en,How many are left? Show me with your fingers!,playful,false,false
+math_try_again,encourage,1,mr,पुन्हा मोजून बघ!,gentle,false,false
+math_try_again,encourage,1,hi,फिर से गिनकर देखो!,gentle,false,false
+math_try_again,encourage,1,en,Count again!,gentle,false,false
+math_hint_01,hint,1,mr,चित्रे एक-एक करून मोजा!,encouraging,false,false
+math_hint_01,hint,1,hi,तस्वीरें एक-एक करके गिनो!,encouraging,false,false
+math_hint_01,hint,1,en,Count the pictures one by one!,encouraging,false,false
+math_hint_02,hint,1,mr,प्रत्येक चित्रासाठी एक बोट उघडा!,encouraging,false,false
+math_hint_02,hint,1,hi,हर तस्वीर के लिए एक उंगली खोलो!,encouraging,false,false
+math_hint_02,hint,1,en,Open one finger for each picture!,encouraging,false,false
+math_no_hands,transition,1,mr,हात दिसत नाहीत. हात वर करून बोटे दाखवा!,calm,false,false
+math_no_hands,transition,1,hi,हाथ नहीं दिख रहे. हाथ ऊपर करके उंगलियाँ दिखाओ!,calm,false,false
+math_no_hands,transition,1,en,I can't see your hands. Hold them up and show your fingers!,calm,false,false

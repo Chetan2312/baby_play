@@ -217,9 +217,21 @@ def lint(strict_audio=False, release=False):
             for dif, lv in (g.get("session_level") or {}).items():
                 if lv not in levels:
                     errors.append(f"game {gid}: session_level {dif} → unknown level {lv!r}")
-        for k in ("bee_intro_line", "bee_oops_line", "finger_intro_line", "perfect_line"):
+        for k in ("bee_intro_line", "bee_oops_line", "finger_intro_line", "perfect_line", "plus_line",
+                  "minus_line", "q_count_line", "q_add_line", "q_sub_line", "try_again_line", "no_hands_line"):
             if g.get(k) and g[k] not in lines:
                 errors.append(f"game {gid}: unknown {k} {g[k]!r}")
+        for wid in g.get("number_words") or []:
+            if wid not in lines:
+                errors.append(f"game {gid}: number word {wid!r} unknown")
+        for it in g.get("pictures") or []:
+            if it.get("image") and not os.path.exists(os.path.join(CONTENT, it["image"])):
+                errors.append(f"game {gid} picture {it.get('id')!r}: image missing {it['image']}")
+            if it.get("word") and it["word"] not in lines:
+                errors.append(f"game {gid} picture {it.get('id')!r}: unknown word {it['word']!r}")
+        for lv, cfg in (g.get("levels") or {}).items():
+            if isinstance(cfg, dict) and "max_answer" in cfg and cfg["max_answer"] > len(g.get("number_words") or []):
+                errors.append(f"game {gid} level {lv}: max_answer {cfg['max_answer']} has no number word")
         if g.get("bee") and g["bee"].get("word") not in lines:
             errors.append(f"game {gid}: bee word {g['bee'].get('word')!r} unknown")
         if g.get("default_pack") and g["default_pack"] not in (g.get("packs") or {}):

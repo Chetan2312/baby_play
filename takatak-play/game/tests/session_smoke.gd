@@ -71,6 +71,57 @@ func wait_game(gid: String) -> void:
 		await wait(0.2)
 
 
+## Keep fake tracked hands "fresh" for a while, as if the vision service sent them.
+func show_hands(counts: Array, seconds: float) -> void:
+	var hs: Array = []
+	for i in counts.size():
+		var kp: Array = []
+		for k in 21:
+			kp.append([0.4 + 0.2 * i, 0.4])
+		hs.append({"player": 1, "side": ["l", "r"][i], "gesture": "other", "count": counts[i],
+			"fingers": [false, false, false, false, false], "tip": [0.4, 0.4], "kp": kp})
+	var t := 0.0
+	while t < seconds:
+		VisionClient.hands = hs
+		VisionClient.hands_received += 1
+		VisionClient.last_hands_ms = Time.get_ticks_msec()
+		await wait(0.05)
+		t += 0.05
+
+
+func finger_math_checks() -> void:
+	var FM = load("res://games/finger_math/FingerMath.gd")
+	check(FM.finger_total([{"player": 1, "count": 5}, {"player": 1, "count": 1}], [1]) == 6, "5 + 1 fingers = 6")
+	check(FM.finger_total([{"player": 1, "count": 3}, {"player": 2, "count": 3}], [1]) == 3, "only the playing child's hands")
+	check(FM.finger_total([], [1]) == -1, "no hands → no answer")
+	GameManager.mode = "free_play"
+	GameManager.pick_game("finger_math", "hard")
+	await wait_game("finger_math")
+	var fm = GameManager.current_game
+	check(fm != null and fm.level == "hard", "finger math, hard")
+	var ok := true
+	for i in 300:
+		var q: Dictionary = fm.make_question(["add", "sub", "count"][i % 3], 1, 10)
+		var expect: int = q["a"] + q["b"] if q["kind"] == "add" else (q["a"] - q["b"] if q["kind"] == "sub" else q["a"])
+		ok = ok and q["answer"] == expect and q["answer"] >= 1 and q["answer"] <= 10 and q["a"] >= 1 \
+			and (q["kind"] == "count" or q["b"] >= 1)
+	check(ok, "questions: answers 1–10, both numbers ≥ 1")
+	for i in 60:
+		if fm.st == fm.St.PLAY:
+			break
+		await wait(0.1)
+	fm.question = {"kind": "add", "a": 3, "b": 3, "answer": 6}
+	await show_hands([2, 2], 1.6)                      # 4: wrong, held → −1 once
+	check(fm.wrong == 1 and fm.score == -1, "wrong total held → −1 (got wrong %d)" % fm.wrong)
+	await show_hands([2, 2], 1.4)
+	check(fm.wrong == 1, "the same wrong total isn't counted twice")
+	await show_hands([5, 1], 1.5)                      # 5 + 1 = 6: right
+	check(fm.correct == 1 and fm.score == 0 and fm.st == fm.St.CELEBRATE, "5 fingers + 1 finger = 6 → right")
+	VisionClient.hands = []
+	VisionClient.last_hands_ms = -100000
+	await press("back", 0.4)                           # back to the picker
+
+
 func step_id() -> String:
 	return str(SessionDirector.step.get("id", ""))
 
@@ -219,7 +270,7 @@ func _run() -> void:
 	await press("select", 0.3)   # item 13: choose a game (free play)
 	var picker = GameManager.current
 	check(GameManager.mode == "free_play" and picker != null and "games" in picker, "free play opens the game picker")
-	check(picker.games == ["session", "simon_says", "bubble_pop@local_fruits", "bubble_pop@numbers_1_5"],
+	check(picker.games == ["session", "simon_says", "bubble_pop@local_fruits", "bubble_pop@numbers_1_5", "finger_math"],
 		"picker: session card + games, one card per bubble pack (got %s)" % str(picker.games))
 	var rects: Array = picker.card_rects()
 	await wait(1.3)    # page cooldown
@@ -314,6 +365,9 @@ func _run() -> void:
 	await press("back", 0.4)
 	await press("back", 0.4)
 	check(GameManager.mode == "session" and idle_variant() == "ready", "back from the picker → idle")
+
+	# Finger Math: answers are the total of raised fingers over both hands
+	await finger_math_checks()
 
 	# picker as the start screen: "Today's session" card starts the session, home after it
 	Centre.set_value("landing", "picker")

@@ -254,6 +254,17 @@ func _draw_icon(card: String, c: Vector2, r: float) -> void:
 			draw_arc(bc, br, 0.0, TAU, 32, Color(1, 1, 1, 0.85), maxf(2.0, br * 0.08), true)
 			draw_string(font, bc + Vector2(-br, br * 0.3), str(b[2]), HORIZONTAL_ALIGNMENT_CENTER, br * 2.0, int(br * 1.1))
 		return
+	if card == "finger_math":   # an open hand with "+"
+		var skin := Color(1.0, 0.86, 0.7)
+		var palm := c + Vector2(0, r * 0.25)
+		draw_circle(palm, r * 0.38, skin)
+		for k in 5:
+			var a := lerpf(-PI * 0.85, -PI * 0.15, k / 4.0)
+			var tip := palm + Vector2(cos(a), sin(a)) * r * (0.75 if k > 0 else 0.6)
+			draw_line(palm, tip, skin, r * 0.17, true)
+			draw_circle(tip, r * 0.085, skin)
+		draw_string(UiKit.font(), c + Vector2(r * 0.25, -r * 0.35), "+", HORIZONTAL_ALIGNMENT_LEFT, -1, int(r * 0.9), UiKit.GOLD)
+		return
 	match card.get_slice("@", 0):
 		"session":   # sun: today
 			var sun := Color(1.0, 0.75, 0.2)
