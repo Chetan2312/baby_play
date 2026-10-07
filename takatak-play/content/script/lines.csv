@@ -317,3 +317,18 @@ math_hint_02,hint,1,en,Open one finger for each picture!,encouraging,false,false
 math_no_hands,transition,1,mr,हात दिसत नाहीत. हात वर करून बोटे दाखवा!,calm,false,false
 math_no_hands,transition,1,hi,हाथ नहीं दिख रहे. हाथ ऊपर करके उंगलियाँ दिखाओ!,calm,false,false
 math_no_hands,transition,1,en,I can't see your hands. Hold them up and show your fingers!,calm,false,false
+dash_intro,transition,1,mr,"गोलांकडे जा, चौकोनांपासून दूर राहा! संगीतावर हला!",excited,false,false
+dash_intro,transition,1,hi,"गोलों की तरफ जाओ, चौकोरों से बचो! संगीत पर थिरको!",excited,false,false
+dash_intro,transition,1,en,"Run to the circles, dodge the squares! Move to the music!",excited,false,false
+dash_go,transition,1,mr,चला!,excited,false,false
+dash_go,transition,1,hi,चलो!,excited,false,false
+dash_go,transition,1,en,Go!,excited,false,false
+dash_crash,encourage,1,mr,अरे! चौकोन लागला!,gentle,false,false
+dash_crash,encourage,1,hi,अरे! चौकोर से टकरा गए!,gentle,false,false
+dash_crash,encourage,1,en,Oops! You hit a square!,gentle,false,false
+dash_game_over,encourage,1,mr,खेळ संपला! छान प्रयत्न!,warm,false,false
+dash_game_over,encourage,1,hi,खेल खत्म! अच्छी कोशिश!,warm,false,false
+dash_game_over,encourage,1,en,Game over! Great try!,warm,false,false
+dash_win,praise,1,mr,शाब्बास! तुम्ही संपूर्ण गाणे पूर्ण केले!,excited,false,false
+dash_win,praise,1,hi,शाबाश! तुमने पूरा गाना पूरा किया!,excited,false,false
+dash_win,praise,1,en,Well done! You finished the whole song!,excited,false,false

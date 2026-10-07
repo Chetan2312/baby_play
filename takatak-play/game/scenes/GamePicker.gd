@@ -254,6 +254,14 @@ func _draw_icon(card: String, c: Vector2, r: float) -> void:
 			draw_arc(bc, br, 0.0, TAU, 32, Color(1, 1, 1, 0.85), maxf(2.0, br * 0.08), true)
 			draw_string(font, bc + Vector2(-br, br * 0.3), str(b[2]), HORIZONTAL_ALIGNMENT_CENTER, br * 2.0, int(br * 1.1))
 		return
+	if card == "lane_dash":   # two lanes, a circle and a square coming down
+		for l in [-1, 1]:
+			draw_colored_polygon(PackedVector2Array([c + Vector2(l * r * 0.12, -r * 0.8), c + Vector2(l * r * 0.32, -r * 0.8),
+				c + Vector2(l * r * 0.9, r * 0.8), c + Vector2(l * r * 0.2, r * 0.8)]), Color(0.4, 0.6, 1.0, 0.35))
+		draw_circle(c + Vector2(-r * 0.4, r * 0.25), r * 0.22, Color(0.3, 0.85, 0.4))
+		draw_colored_polygon(UiKit.star_points(c + Vector2(-r * 0.4, r * 0.25), r * 0.13, _t), UiKit.GOLD)
+		draw_rect(Rect2(c + Vector2(r * 0.25, -r * 0.35), Vector2(r * 0.3, r * 0.3)), Color(0.85, 0.15, 0.15))
+		return
 	if card == "finger_math":   # an open hand with "+"
 		var skin := Color(1.0, 0.86, 0.7)
 		var palm := c + Vector2(0, r * 0.25)

@@ -218,7 +218,8 @@ def lint(strict_audio=False, release=False):
                 if lv not in levels:
                     errors.append(f"game {gid}: session_level {dif} → unknown level {lv!r}")
         for k in ("bee_intro_line", "bee_oops_line", "finger_intro_line", "perfect_line", "plus_line",
-                  "minus_line", "q_count_line", "q_add_line", "q_sub_line", "try_again_line", "no_hands_line"):
+                  "minus_line", "q_count_line", "q_add_line", "q_sub_line", "try_again_line", "no_hands_line", "go_line",
+                  "crash_line", "game_over_line", "win_line"):
             if g.get(k) and g[k] not in lines:
                 errors.append(f"game {gid}: unknown {k} {g[k]!r}")
         for wid in g.get("number_words") or []:

@@ -170,3 +170,12 @@ def test_worker_process_runs_the_model():
     finally:
         w.close()
     assert not w.proc.is_alive()
+
+
+def test_mock_child_steps_sideways():
+    from takatak_vision.mock import MockPerformer
+    m = MockPerformer()
+    x0 = m.kp(0.0)[:, 0].mean()
+    assert m.command("left") and m.kp(0.0)[:, 0].mean() > x0 + 100      # camera +x = screen left (mirrored)
+    assert m.command("right") and m.kp(0.0)[:, 0].mean() < x0 - 100
+    assert m.command("middle") and abs(m.kp(0.0)[:, 0].mean() - x0) < 10

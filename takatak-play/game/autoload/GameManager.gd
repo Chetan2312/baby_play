@@ -21,6 +21,7 @@ const GAME_SCENES := {
 	"simon_says": "res://games/simon_says/SimonSays.tscn",
 	"bubble_pop": "res://games/bubble_pop/BubblePop.tscn",
 	"finger_math": "res://games/finger_math/FingerMath.tscn",
+	"lane_dash": "res://games/lane_dash/LaneDash.tscn",
 }
 const PICKER_SCENE := "res://scenes/GamePicker.tscn"
 const SESSION_CARD := "session"   # picker card that starts the fixed session

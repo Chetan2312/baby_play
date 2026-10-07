@@ -1,0 +1,36 @@
+# Ninja Dash: a reaction + rhythm game. Two lanes run from the horizon towards the child;
+# circles and squares come down them on the beat of an original synthesized song. The
+# child steps left / right (which half of the screen the body is in): a circle reaching
+# the child's lane is smashed (+1), a square reaching it is a crash (−1 life; no lives
+# left = game over). Never squares in both lanes at once, and at least min_gap_beats to
+# switch sides. Reaction time = square appears in your lane → you leave the lane.
+game: lane_dash
+title: { mr: "निन्जा धाव", hi: "निंजा दौड़", en: "Ninja dash" }
+intro_line: dash_intro
+go_line: dash_go
+crash_line: dash_crash
+game_over_line: dash_game_over
+win_line: dash_win
+perfect_line: bubble_perfect
+session_level: { toddler: easy, kid: medium }
+
+settings:
+  horizon_y: 0.2                # where the lanes start (fraction of screen height)
+  hit_y: 0.86                   # where objects reach the child
+  lane_x_bottom: [0.3, 0.7]     # lane centres at the hit line (fraction of width)
+  lane_x_top: [0.46, 0.54]      # lane centres at the horizon
+  lane_margin: 0.04             # body x must pass 0.5 ± this to change lane (no flicker)
+  countdown_beats: 4            # 3 · 2 · 1 · GO
+  min_gap_beats: 2              # time to switch sides between squares in different lanes
+  bpm_ramp: 4                   # the song speeds up by this many bpm …
+  ramp_every_beats: 16          # … every this many beats
+  crash_pause_s: 1.0
+  summary_s: 5.0
+  perfect_s: 7.0
+  music_volume_db: -6.0
+  # optional licensed music instead of the synth beat: music: res-or-content path, music_bpm: n
+
+levels:
+  easy:   { bpm: 80,  song_beats: 64,  travel_beats: 4, spawn_every_beats: 2, square_share: 0.3,  pair_share: 0.0, lives: 3 }
+  medium: { bpm: 95,  song_beats: 96,  travel_beats: 4, spawn_every_beats: 2, square_share: 0.4,  pair_share: 0.3, lives: 2 }
+  hard:   { bpm: 110, song_beats: 128, travel_beats: 4, spawn_every_beats: 1, square_share: 0.45, pair_share: 0.4, lives: 1 }

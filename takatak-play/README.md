@@ -52,6 +52,7 @@ game/                       Godot 4 project (open this folder in the editor; Com
   games/simon_says/         Simon Says
   games/bubble_pop/         Bubble Pop (fruit photos / numbers १–५)
   games/finger_math/        Finger Math (answer by showing fingers)
+  games/lane_dash/          Ninja Dash (dodge squares, smash circles, on the beat)
   tests/                    SessionSmoke: headless session-flow test (./run.sh smoke)
 content/
   script/lines.csv          every spoken line × mr/hi/en (DRAFT text: needs native review)
@@ -217,6 +218,30 @@ All of it is tunable in `content/games/bubble_pop.yaml` (`levels:`).
 | Hard | adding and subtracting within 10 (taken-away pictures crossed out) | 1–10 |
 
 Tunable in `content/games/finger_math.yaml`.
+
+## How Ninja Dash works (reaction + rhythm)
+
+1. Two lanes run from the horizon towards the child, over the camera picture. On the beat
+   of an original synthesized song (kick, clap, hi-hat, bass: `core/BeatSynth.gd`, no
+   music files), **circles** and **squares** come down them.
+2. The child **steps left or right**: the side of the screen their body (hips, else
+   shoulders) is on picks the lane; their lane glows and a ninja star marks it.
+3. Circle reaches your lane: smash, +1. Square reaches your lane: crash (red flash, shake),
+   −1 life; no lives left = **game over**. Squares in the other lane whoosh past.
+4. Fair patterns: never squares in both lanes at once, always ≥ 2 beats to switch sides;
+   often a circle in the other lane (dodge into it). The song speeds up as it goes.
+5. Finish the song to win; no crash and no missed circle = perfect (fireworks + trophy).
+   **Reaction time** (a square appears in your lane → you leave the lane): fastest and
+   average on the end screen.
+6. PC testing: type `left` / `right` / `middle` in the mock server terminal.
+
+| Level | Tempo | Song | Squares | Lives |
+|---|---|---|---|---|
+| Easy | 80 bpm | 64 beats (~48 s) | 30 % | 3 |
+| Medium | 95 bpm | 96 beats (~60 s) | 40 %, with circle pairs | 2 |
+| Hard | 110 bpm | 128 beats (~70 s) | 45 %, every beat | 1 (one hit = game over) |
+
+Tunable in `content/games/lane_dash.yaml` (`lives: 1` everywhere for one-hit game over).
 
 ## Performance notes (Pi 5)
 

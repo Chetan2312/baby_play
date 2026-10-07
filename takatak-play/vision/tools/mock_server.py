@@ -9,6 +9,7 @@ Type into this terminal while it runs (synthetic mode):
   touch_nose | touch_head | touch_ear | hands_up | touch_tummy | touch_shoulders |
   touch_knees | clap | left_hand_up | neutral | away | back
   press | hold <seconds>     (GPIO worker button: hold 2 = stop, hold 5 = supervisor menu)
+  left | right | middle      (step to that side of the screen: Ninja Dash lanes)
 """
 import argparse
 import asyncio

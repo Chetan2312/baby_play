@@ -8,6 +8,7 @@ Synthetic child control:
     `react_s`, holds it for `hold_s`, then returns to neutral
   - stdin commands (tools/mock_server.py): a check name, "neutral", "away", "back"
   - --auto: cycles through all poses by itself
+  - "left" / "right" / "middle": the child steps to that side of the SCREEN (lane games)
   - hands (when a game subscribes): a raised RIGHT hand points (index finger), a raised
     LEFT hand is open, so finger games can be built without the hand model
 """
@@ -51,6 +52,7 @@ class MockPerformer:
         self._plan = []          # [(time, pose_name)]
         self._lock = threading.Lock()
         self._next_auto = 0.0
+        self.dx = 0.0            # sideways step (camera px; + = screen left, the image is mirrored)
 
     def _go(self, name, now):
         target = _place(NEUTRAL if name == "neutral" else TARGETS[name])
@@ -79,6 +81,8 @@ class MockPerformer:
                 self.present = False
             elif cmd == "back":
                 self.present = True
+            elif cmd in ("left", "right", "middle"):
+                self.dx = {"left": 170.0, "right": -170.0, "middle": 0.0}[cmd]
             elif cmd == "neutral" or cmd in TARGETS:
                 self.present = True
                 self._go(cmd, now)
@@ -99,7 +103,7 @@ class MockPerformer:
                 return None
             kp = self._pose_at(now).copy()
         sway = math.sin(now * 1.3) * 4.0
-        kp[:, 0] += sway + np.sin(now * 7 + np.arange(17)) * 0.6
+        kp[:, 0] += self.dx + sway + np.sin(now * 7 + np.arange(17)) * 0.6
         kp[:, 1] += np.cos(now * 6 + np.arange(17)) * 0.6
         return kp
 

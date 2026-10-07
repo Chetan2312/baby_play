@@ -122,6 +122,66 @@ func finger_math_checks() -> void:
 	await press("back", 0.4)                           # back to the picker
 
 
+func lane_dash_checks() -> void:
+	var LD = load("res://games/lane_dash/LaneDash.gd")
+	var body := func(x: float) -> Dictionary:
+		return {"id": 1, "active": true, "kp": {"l_hip": [x - 0.03, 0.6, 0.9], "r_hip": [x + 0.03, 0.6, 0.9]}}
+	check(is_equal_approx(LD.body_x(body.call(0.3)), 0.3), "body x from the hips")
+	check(LD.lane_of(0.3, 1, 0.04) == 0 and LD.lane_of(0.7, 0, 0.04) == 1, "body side picks the lane")
+	check(LD.lane_of(0.51, 0, 0.04) == 0 and LD.lane_of(0.49, 1, 0.04) == 1, "no lane flicker in the middle")
+	GameManager.mode = "free_play"
+	GameManager.pick_game("lane_dash", "hard")
+	await wait_game("lane_dash")
+	var ld = GameManager.current_game
+	check(ld != null and ld.lives == 1, "ninja dash hard: one life")
+	# fair patterns over a long song
+	ld.lvl["song_beats"] = 4000
+	var arrivals := {}
+	var fair := true
+	for b in 3000:
+		for o in ld.plan_spawn(b):
+			var arr: int = b + 4
+			if o["kind"] == "square":
+				for other in arrivals.get(1 - o["lane"], []):
+					if absf(arr - other) < 2:
+						fair = false
+				if not arrivals.has(o["lane"]):
+					arrivals[o["lane"]] = []
+				arrivals[o["lane"]].append(arr)
+	check(fair, "never squares in both lanes within 2 beats")
+	ld.lvl["song_beats"] = 64
+	for i in 120:
+		if ld.st == ld.St.PLAY:
+			break
+		await wait(0.1)
+	check(ld.st == ld.St.PLAY, "countdown → play")
+	ld.lvl["spawn_every_beats"] = 100000         # only our objects from here on
+	ld.objects.clear()
+	ld.lives = 3
+	VisionClient.active_people = [body.call(0.3)]  # the child stands in the left lane
+	await wait(0.2)
+	check(ld.lane == 0, "child on the left → left lane")
+	ld.spawn_object("circle", 0, ld.beat_pos + 0.2)
+	ld.spawn_object("square", 1, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.score == 1 and ld.dodged == 1 and ld.lives == 3, "circle smashed, square in the other lane dodged")
+	ld.spawn_object("square", 0, ld.beat_pos + 3.0)  # coming down the child's lane …
+	await wait(0.3)
+	VisionClient.active_people = [body.call(0.7)]  # … the child steps right
+	await wait(0.3)
+	check(ld.lane == 1 and ld.reactions.size() == 1, "stepping out of a square's lane → reaction time")
+	ld.objects.clear()
+	ld.spawn_object("square", 1, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.lives == 2 and ld.crashes == 1, "square in your lane → crash, −1 life")
+	ld.lives = 1
+	ld.spawn_object("square", 1, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.st == ld.St.SUMMARY and ld.game_over, "last life gone → game over")
+	VisionClient.active_people = []
+	await press("back", 0.4)
+
+
 func step_id() -> String:
 	return str(SessionDirector.step.get("id", ""))
 
@@ -270,7 +330,8 @@ func _run() -> void:
 	await press("select", 0.3)   # item 13: choose a game (free play)
 	var picker = GameManager.current
 	check(GameManager.mode == "free_play" and picker != null and "games" in picker, "free play opens the game picker")
-	check(picker.games == ["session", "simon_says", "bubble_pop@local_fruits", "bubble_pop@numbers_1_5", "finger_math"],
+	check(picker.games == ["session", "simon_says", "bubble_pop@local_fruits", "bubble_pop@numbers_1_5", "finger_math",
+		"lane_dash"],
 		"picker: session card + games, one card per bubble pack (got %s)" % str(picker.games))
 	var rects: Array = picker.card_rects()
 	await wait(1.3)    # page cooldown
@@ -368,6 +429,8 @@ func _run() -> void:
 
 	# Finger Math: answers are the total of raised fingers over both hands
 	await finger_math_checks()
+	# Ninja Dash: lanes from the body position, smash / dodge / crash / game over
+	await lane_dash_checks()
 
 	# picker as the start screen: "Today's session" card starts the session, home after it
 	Centre.set_value("landing", "picker")

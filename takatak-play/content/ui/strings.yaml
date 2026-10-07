@@ -76,3 +76,6 @@ level_medium:         {mr: "मध्यम", hi: "मध्यम", en: "Medium
 level_hard:           {mr: "कठीण", hi: "कठिन", en: "Hard", reviewed: false}
 score_title:          {mr: "गुण", en: "Score", reviewed: false}
 perfect_title:        {mr: "परफेक्ट!", hi: "परफेक्ट!", en: "PERFECT!", reviewed: false}
+game_over_title:      {mr: "खेळ संपला", hi: "खेल खत्म", en: "GAME OVER", reviewed: false}
+reaction_fastest:     {mr: "सर्वात जलद हालचाल", en: "Fastest move", reviewed: false}
+reaction_average:     {mr: "सरासरी", en: "Average", reviewed: false}
