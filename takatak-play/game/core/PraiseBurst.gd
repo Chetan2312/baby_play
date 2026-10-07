@@ -75,6 +75,7 @@ func hide_word() -> void:
 func clear() -> void:
 	_parts.clear()
 	hide_word()
+	queue_redraw()   # _process skips redrawing when there are no particles: wipe the last stars now
 
 
 func _process(delta: float) -> void:
