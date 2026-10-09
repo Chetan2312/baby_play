@@ -160,6 +160,9 @@ func _handle(msg: Dictionary) -> void:
 			keyword.emit(str(msg.get("word", "")), str(msg.get("lang", "")), float(msg.get("confidence", 0.0)))
 		"status":
 			last_status = msg
+			var fs = msg.get("frame_size", null)   # keypoints map right even without frames
+			if fs is Array and fs.size() == 2 and float(fs[0]) > 0.0 and float(fs[1]) > 0.0:
+				frame_size = Vector2(float(fs[0]), float(fs[1]))
 			status_received.emit(msg)
 		"no_player":
 			no_player.emit(float(msg.get("seconds", 0.0)))
@@ -238,6 +241,12 @@ func set_camera(camera: String) -> void:
 	send(_sticky["set_camera"])
 
 
+## Turn the camera picture: normal | right (90° clockwise) | inverted | left.
+func set_rotation(rotation: String) -> void:
+	_sticky["set_rotation"] = {"t": "set_rotation", "rotation": rotation}
+	send(_sticky["set_rotation"])
+
+
 func set_difficulty(difficulty: String) -> void:
 	_sticky["set_difficulty"] = {"t": "set_difficulty", "difficulty": difficulty}
 	send(_sticky["set_difficulty"])
@@ -268,12 +277,16 @@ func hands_fresh(max_age_s := 0.6) -> bool:
 
 # ---- coordinates ---------------------------------------------------------------
 
-## Rect the camera frame covers on screen (fills the view, crops overflow).
+## Rect the camera frame covers on screen: fills the view and crops the overflow. A
+## portrait frame (camera turned right / left) on a landscape screen is fitted whole
+## instead, with side bars, so the child's head and feet stay on screen.
 func cover_rect(view: Vector2) -> Rect2:
 	var fs := frame_size
 	if fs.x <= 0.0 or fs.y <= 0.0:
 		fs = DEFAULT_FRAME_SIZE
 	var s := maxf(view.x / fs.x, view.y / fs.y)
+	if (fs.y > fs.x) != (view.y > view.x):
+		s = minf(view.x / fs.x, view.y / fs.y)
 	var size := fs * s
 	return Rect2((view - size) * 0.5, size)
 

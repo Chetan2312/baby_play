@@ -199,8 +199,15 @@ class MockSource:
         return []
 
     # game controls
+    rotation = "normal"
+    frame_size = DISPLAY
+
     def set_camera(self, which):
         print(f"[mock] set_camera {which} (ignored)")
+
+    def set_rotation(self, rotation):
+        self.rotation = rotation   # reported in status; the synthetic picture is always upright
+        print(f"[mock] set_rotation {rotation} (synthetic picture stays upright)")
 
     def set_players(self, mode):
         self.analyzer.set_mode(mode)

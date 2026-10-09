@@ -76,6 +76,7 @@ func boot() -> void:
 	VisionClient.set_difficulty(Settings.difficulty)
 	if Settings.camera != "":
 		VisionClient.set_camera(Settings.camera)
+	VisionClient.set_rotation(str(Centre.value("camera_rotation")))
 	if Settings.deva_test:
 		show_deva_test()
 	elif Settings.free_play:

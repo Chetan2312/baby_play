@@ -21,6 +21,8 @@ camera_index: { wide: 0, noir: 1, imx500: 0 }  # fallback if sensor model names 
 camera_opts:
   main_size: [1920, 1080]         # capture: hand tracking cuts the hands from this
   transport_size: [960, 540]      # JPEG for the game (main is downscaled to this)
+  rotation: normal                # normal | right | inverted | left: turn the picture when the camera is
+                                  # mounted sideways / upside down (the game's supervisor menu overrides this)
   framerate: 30                   # try 50 for a snappier pointer (camera latency ↓, pose rate ↑) if the Pi keeps up: check ./run.sh debug fps
   auto_brightness_threshold: 60   # camera: auto → mean luma (0-255) below this picks noir
   auto_probe_frames: 15

@@ -7,7 +7,7 @@ import time
 
 from .analysis import Analyzer
 from .button import GpioButton
-from .camera import CameraThread, VideoThread, lores_size_for
+from .camera import CameraThread, VideoThread, lores_size_for, rotated_size
 from .config import path
 from .encoder import FrameEncoder
 from .hands import HandThread
@@ -96,6 +96,21 @@ class HardwareSource:
     # game controls
     def set_camera(self, which):
         self.cam.request_switch(which)
+
+    def set_rotation(self, rotation):
+        if rotation != self.cam.rotation:
+            print(f"[camera] rotation {rotation}")
+        self.cam.set_rotation(rotation)
+
+    @property
+    def rotation(self):
+        return self.cam.rotation
+
+    @property
+    def frame_size(self):
+        """Display frame (w, h): the transport size, turned like the camera picture."""
+        copts = self.cfg["camera_opts"]
+        return rotated_size(tuple(copts.get("transport_size") or copts["main_size"]), self.cam.rotation)
 
     def set_players(self, mode):
         self.analyzer.set_mode(mode)

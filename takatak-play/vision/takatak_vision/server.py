@@ -105,6 +105,8 @@ class VisionServer:
             self.source.set_players(m["mode"])
         elif t == "set_camera":
             self.source.set_camera(m["camera"])
+        elif t == "set_rotation" and hasattr(self.source, "set_rotation"):
+            self.source.set_rotation(m["rotation"])
         elif t == "set_difficulty":
             self.source.set_difficulty(m["difficulty"])
         elif t == "mock_expect":
@@ -182,7 +184,8 @@ class VisionServer:
             if self.clients:
                 lat = self.source.perf.latencies() if hasattr(self.source.perf, "latencies") else None
                 txt = P.dumps(P.status(self.source.perf.fps(), temp, self.source.errors(),
-                                       self.source.camera_name, lat))
+                                       self.source.camera_name, lat, getattr(self.source, "rotation", "normal"),
+                                       getattr(self.source, "frame_size", None)))
                 for c in self.clients:
                     c.push(txt)
 

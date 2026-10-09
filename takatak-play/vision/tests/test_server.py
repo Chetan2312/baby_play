@@ -70,7 +70,10 @@ def test_end_to_end_with_mock():
             err = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "error")
             assert "JSON" in err["text"]
             status = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "status")
-            assert "pose" in status["fps"]
+            assert "pose" in status["fps"] and status["frame_size"] == [960, 540]
+            await ws.send(json.dumps({"t": "set_rotation", "rotation": "inverted"}))
+            status = await recv_until(ws, lambda m: isinstance(m, dict) and m["t"] == "status")
+            assert status["rotation"] == "inverted"
             await ws.send(json.dumps({"t": "subscribe", "frames": False}))
         # game disconnects and comes back: service keeps going
         async with websockets.connect(url, max_size=2 ** 22) as ws:

@@ -30,6 +30,11 @@ picker_session:       {mr: "आजचे सत्र", hi: "आज का स�
 item_landing:         {mr: "सुरुवातीचा पडदा", en: "Start screen", reviewed: false}
 val_picker:           {mr: "खेळ निवडा", en: "Choose a game", reviewed: false}
 val_session:          {mr: "ठरलेले सत्र", en: "Fixed session", reviewed: false}
+item_camera_rotation: {mr: "कॅमेरा फिरवा", en: "Camera rotation", reviewed: false}
+val_rot_normal:       {mr: "सरळ", en: "Normal", reviewed: false}
+val_rot_right:        {mr: "उजवीकडे", en: "Right", reviewed: false}
+val_rot_inverted:     {mr: "उलटा", en: "Upside down", reviewed: false}
+val_rot_left:         {mr: "डावीकडे", en: "Left", reviewed: false}
 item_exit:            {mr: "बाहेर पडा", en: "Exit", reviewed: false}
 
 val_mr_first:         {mr: "मराठी प्रथम", en: "Marathi first", reviewed: false}

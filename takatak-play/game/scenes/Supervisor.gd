@@ -28,6 +28,7 @@ const ITEMS := [
 	{"id": "export", "key": "item_export", "kind": "action"},
 	{"id": "privacy", "key": "item_privacy", "kind": "page"},
 	{"id": "status", "key": "item_status", "kind": "page"},
+	{"id": "camera_rotation", "key": "item_camera_rotation", "kind": "cycle", "values": ["normal", "right", "inverted", "left"]},
 	{"id": "free_play", "key": "item_free_play", "kind": "action"},
 	{"id": "exit", "key": "item_exit", "kind": "action"},
 ]
@@ -175,6 +176,8 @@ func _cycle(item: Dictionary) -> void:
 	var i := values.find(cur)
 	Centre.set_value(key, values[(i + 1) % values.size()])
 	VisionClient.set_difficulty(Settings.difficulty)
+	if id == "camera_rotation":
+		VisionClient.set_rotation(str(Centre.value(id)))
 
 
 # ---- rendering -----------------------------------------------------------------
@@ -230,6 +233,8 @@ func _value_text(item: Dictionary) -> String:
 			return "%d · %s / %s" % [Centre.week(), str(t.get("mr", "")), str(t.get("en", ""))]
 		"language_mode", "difficulty", "landing":
 			return UiKit.ui_both("val_" + str(Centre.value(id)))
+		"camera_rotation":
+			return UiKit.ui_both("val_rot_" + str(Centre.value(id)))
 		"primary_language":
 			return UiKit.ui_both("lang_" + str(Centre.value(id)))
 		"session_minutes", "slots":
@@ -301,7 +306,8 @@ func status_lines() -> Array:
 	var want := str(hw.get("accelerator_expected", "-"))
 	lines.append("Profile: %s · accelerator %s (expected %s) %s" % [str(hw.get("profile", "?")), accel, want,
 		"OK" if accel == want else "!!"])
-	lines.append("Camera: %s · detected %s" % [str(VisionClient.info.get("camera", "?")), ", ".join(PackedStringArray(hw.get("cameras", [])))])
+	lines.append("Camera: %s · detected %s · rotation %s" % [str(VisionClient.info.get("camera", "?")),
+		", ".join(PackedStringArray(hw.get("cameras", []))), str(VisionClient.last_status.get("rotation", "?"))])
 	lines.append("Microphone: %s · audio %s" % ["OK" if hw.get("mic", false) else "not found",
 		", ".join(PackedStringArray(hw.get("audio", [])))])
 	var scr := DisplayServer.screen_get_size()

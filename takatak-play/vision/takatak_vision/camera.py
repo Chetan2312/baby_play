@@ -10,6 +10,10 @@ Errors become a message string for the UI, not a crash.
 
 IMX500 (AI Camera): used here as a plain camera feeding the Hailo. On-sensor
 inference is a later optimisation (docs/model_matrix.md).
+
+Rotation (camera mounted sideways or upside down): both streams are turned right after
+capture, so pose, hands and the picture all see an upright image. right / left give a
+portrait frame (e.g. 1080x1920); the encoder and the game follow the frame's shape.
 """
 import threading
 import time
@@ -19,6 +23,21 @@ import numpy as np
 
 from .hardware import camera_kind
 from .slots import LatestSlot
+
+# rotation name → np.rot90 k (quarter turns counter-clockwise); right = 90° clockwise
+ROTATIONS = {"normal": 0, "right": -1, "inverted": 2, "left": 1}
+
+
+def rotate_frame(img, rotation):
+    """Turn an (H, W, C) frame; a contiguous copy unless rotation is normal."""
+    k = ROTATIONS[rotation]
+    return img if k == 0 else np.ascontiguousarray(np.rot90(img, k))
+
+
+def rotated_size(size, rotation):
+    """(w, h) after rotation: right / left swap the sides."""
+    w, h = size
+    return (h, w) if ROTATIONS[rotation] % 2 else (w, h)
 
 
 class CameraError(Exception):
@@ -80,11 +99,16 @@ class CameraThread(threading.Thread):
         self.status = "starting camera…"
         self.active = None
         self._want = cfg["camera"]
+        self.rotation = self.copts.get("rotation", "normal")
         self._frame_id = 0
         self._quit = threading.Event()
         self._switch = threading.Event()
 
     # UI thread API
+    def set_rotation(self, rotation):
+        rotated_size((1, 1), rotation)   # KeyError on an unknown name
+        self.rotation = rotation         # read once per frame by the capture loop
+
     def request_switch(self, which=None):
         if which is None:
             which = "noir" if self.active == "wide" else "wide"
@@ -164,6 +188,9 @@ class CameraThread(threading.Thread):
             try:
                 while not self._switch.is_set():
                     main, lores = self._grab(cam)
+                    rot = self.rotation
+                    if rot != "normal":
+                        main, lores = rotate_frame(main, rot), rotate_frame(lores, rot)
                     if not main.flags.c_contiguous:
                         main = np.ascontiguousarray(main)
                     self._frame_id += 1
@@ -191,11 +218,16 @@ class VideoThread(threading.Thread):
         self.error = None
         self.status = ""
         self.active = "video"
+        self.rotation = cfg["camera_opts"].get("rotation", "normal")
         self._frame_id = 0
         self._quit = threading.Event()
 
     def request_switch(self, which=None):
         pass
+
+    def set_rotation(self, rotation):
+        rotated_size((1, 1), rotation)
+        self.rotation = rotation
 
     def stop(self):
         self._quit.set()
@@ -215,6 +247,8 @@ class VideoThread(threading.Thread):
                 continue
             main = cv2.cvtColor(cv2.resize(frame, self.main_size), cv2.COLOR_BGR2RGBA)
             lores = cv2.resize(frame, self.lores_size)  # BGR like Picamera2 RGB888
+            rot = self.rotation
+            main, lores = rotate_frame(main, rot), rotate_frame(lores, rot)
             self._frame_id += 1
             self.slot.put(FrameBundle(main, lores, time.monotonic(), "video", self._frame_id))
             if self.rate:

@@ -77,6 +77,7 @@ def test_person_wire_keeps_anatomical_names():
     ('{"t":"set_players","mode":"duo"}', {"t": "set_players", "mode": "duo"}),
     ('{"t":"set_camera","camera":"noir"}', {"t": "set_camera", "camera": "noir"}),
     ('{"t":"set_camera","camera":"imx500"}', {"t": "set_camera", "camera": "imx500"}),
+    ('{"t":"set_rotation","rotation":"right"}', {"t": "set_rotation", "rotation": "right"}),
     ('{"t":"set_difficulty","difficulty":"kid"}', {"t": "set_difficulty", "difficulty": "kid"}),
     ('{"t":"mic_listen_start","purpose":"echo","max_s":3}',
      {"t": "mic_listen_start", "purpose": "echo", "max_s": 3.0}),
@@ -90,9 +91,15 @@ def test_parse_client_valid(text, expected):
 @pytest.mark.parametrize("text", [
     "not json", "[]", '{"t":"nope"}', '{"t":"subscribe","frames":"yes"}',
     '{"t":"subscribe","motion":["moonwalk"]}', '{"t":"set_players","mode":"trio"}',
-    '{"t":"set_camera"}', '{"t":"mic_listen_start","max_s":99}',
+    '{"t":"set_camera"}', '{"t":"mic_listen_start","max_s":99}', '{"t":"set_rotation","rotation":"sideways"}',
     '{"t":"mock_expect","name":"backflip"}',
 ])
 def test_parse_client_invalid(text):
     with pytest.raises(P.ProtocolError):
         P.parse_client(text)
+
+
+def test_status_reports_rotation_and_frame_size():
+    m = P.status({"pose": 30}, rotation="left", frame_size=(540, 960))
+    assert m["rotation"] == "left" and m["frame_size"] == [540, 960]
+    assert P.status({"pose": 30})["frame_size"] is None

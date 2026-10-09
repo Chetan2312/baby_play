@@ -1,6 +1,6 @@
 # Vision ↔ Game protocol (v1)
 
-Additions since Phase 2 (`hello.hardware`, `button`, `imx500`, `hands`) are additive: the version stays 1.
+Additions since Phase 2 (`hello.hardware`, `button`, `imx500`, `hands`, `set_rotation`, `status.frame_size`) are additive: the version stays 1.
 
 Source of truth: `vision/takatak_vision/protocol.py`. Mirror: `game/autoload/VisionClient.gd`.
 Tests: `vision/tests/test_protocol.py`, `vision/tests/test_server.py`.
@@ -34,7 +34,7 @@ Keypoints: `nose l_eye r_eye l_ear r_ear l_shoulder r_shoulder l_elbow r_elbow l
 | `loudness` | `db, speaking` | Phase P5 (sent only when subscribed) |
 | `echo_ready` | `path, duration` | Phase P5 |
 | `keyword` | `word, lang, confidence` | Phase 2b |
-| `status` | `fps{cam,pose,frames}, temp_c, errors[], camera` | Every 1 s |
+| `status` | `fps{cam,pose,frames}, temp_c, errors[], camera, latency_ms{}, rotation, frame_size[w,h]` | Every 1 s. `frame_size`: the display frame, portrait when the picture is turned right / left; the game maps keypoints with it even without frames |
 | `no_player` | `seconds` | Every 0.5 s while there is no active player (from 1 s on) |
 | `button` | `state`: `down` \| `up` | GPIO worker button edge (`gpio_button` in config.yaml). The game's InputRouter turns edges into short / 2 s / 5 s presses. Never dropped |
 | `pong` | | Reply to `ping` |
@@ -49,6 +49,7 @@ Static gesture names: `touch_nose touch_head touch_ear hands_up touch_tummy touc
 | `subscribe` | `frames, mask, loudness, motion[], hands` | Defaults: frames on, everything else off. `hands: true` starts hand tracking (CPU) |
 | `set_players` | `mode`: `single` \| `duo` | Duo: one active player per screen half |
 | `set_camera` | `camera`: `wide` \| `noir` \| `imx500` \| `auto` | With one camera connected, that camera is used whatever is asked |
+| `set_rotation` | `rotation`: `normal` \| `right` \| `inverted` \| `left` | Turns the picture right after capture (camera mounted sideways / upside down): pose, hands and frames all follow. `right` = 90° clockwise. Sticky: the game re-sends it after a reconnect |
 | `set_difficulty` | `difficulty`: `toddler` \| `kid` | Picks the static gesture tolerances (addition to the brief) |
 | `mic_listen_start` | `purpose, max_s` (≤ 10) | Phase P5; returns `error` until then |
 | `mic_listen_stop` | | Phase P5 |

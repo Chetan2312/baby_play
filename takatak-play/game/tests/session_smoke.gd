@@ -327,6 +327,19 @@ func _run() -> void:
 	await press("select", 0.1)   # item 12: status page
 	check(sup.page == sup.Page.STATUS and sup.status_lines().size() > 5, "status page")
 	await press("back", 0.1)
+	await press("next", 0.05)
+	await press("select", 0.1)   # item 13: camera rotation
+	check(Centre.value("camera_rotation") == "right" and VisionClient._sticky.get("set_rotation", {}).get("rotation") == "right",
+		"camera rotation cycles and is sent to the vision service")
+	for i in 3:
+		await press("select", 0.05)
+	check(Centre.value("camera_rotation") == "normal", "camera rotation back to normal")
+	var fs0: Vector2 = VisionClient.frame_size
+	VisionClient.frame_size = Vector2(540, 960)   # portrait frame (turned right) on a landscape screen
+	var r: Rect2 = VisionClient.cover_rect(Vector2(1920, 1080))
+	check(is_equal_approx(r.size.y, 1080.0) and r.position.x > 0.0, "portrait frame fitted whole, side bars")
+	VisionClient.frame_size = fs0
+	await press("prev", 0.05)
 	await press("prev", 0.05)
 	await press("select", 0.3)   # item 11: privacy page
 	check(sup.page == sup.Page.PRIVACY, "privacy page")
@@ -390,9 +403,9 @@ func _run() -> void:
 		for i in d:
 			InputRouter.fire("next")
 		await press("select", 0.1)
-	for i in 13:
+	for i in 14:
 		InputRouter.fire("next")
-	await press("select", 0.3)   # item 13: choose a game (free play)
+	await press("select", 0.3)   # item 14: choose a game (free play)
 	var picker = GameManager.current
 	check(GameManager.mode == "free_play" and picker != null and "games" in picker, "free play opens the game picker")
 	check(picker.games == ["session", "simon_says", "bubble_pop@local_fruits", "bubble_pop@numbers_1_5", "finger_math",

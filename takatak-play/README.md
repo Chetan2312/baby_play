@@ -333,9 +333,18 @@ GPIO: set `gpio_button.enabled: true` and `pin` in `vision/config.yaml` (button 
 Supervisor PIN: `supervisor_pin` in `content/centre_profile.yaml` (default `1234`:
 change it per centre). Menu: week, language mode, main language, age group, session
 length, children at a time*, AI-literacy games*, lift today's limit, usage counts, export
-usage to USB, privacy screen, system status, choose a game (free play). First item:
-Start screen (Choose a game / fixed session). (*stored only; those features
+usage to USB, privacy screen, system status, camera rotation, choose a game (free play).
+First item: Start screen (Choose a game / fixed session). (*stored only; those features
 are not built yet.)
+
+**Camera rotation** (camera mounted sideways or upside down): supervisor menu → Camera
+rotation, each OK turns it Normal → Right (90° clockwise) → Upside down → Left. It
+applies at once, is saved on the device and sent again after every reconnect. The vision
+service turns the picture right after capture, so pose, hands and the picture all agree.
+Right / left give a portrait picture: the game shows it whole with side bars instead of
+cropping off head and feet. Default without the game: `camera_opts.rotation` in
+`vision/config.yaml`. Right / left cost one frame copy per frame (a few ms on the Pi 5).
+The mock server reports the rotation but its synthetic picture stays upright.
 
 ### Weeks and centre profile (D4)
 

@@ -34,6 +34,7 @@ LANGUAGE_MODES = ("mr_first", "all_three", "single")
 DIFFICULTIES = ("toddler", "kid")
 SPONSORS = ("none", "cummins_foundation")
 LANDINGS = ("picker", "session")
+ROTATIONS = ("normal", "right", "inverted", "left")   # camera picture turn (vision protocol)
 UI_LANGS = ("mr", "en")
 
 
@@ -121,6 +122,8 @@ def lint_centre(c, weeks, sessions):
         bad("difficulty", f"must be one of {DIFFICULTIES}")
     if c.get("landing") not in LANDINGS:
         bad("landing", f"must be one of {LANDINGS}")
+    if c.get("camera_rotation", "normal") not in ROTATIONS:
+        bad("camera_rotation", f"must be one of {ROTATIONS}")
     if c.get("session") not in sessions:
         bad("session", "is not a session in content/sessions/")
     if not isinstance(c.get("session_minutes"), (int, float)) or not 12 <= c["session_minutes"] <= 20:

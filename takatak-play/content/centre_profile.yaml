@@ -6,6 +6,8 @@ primary_language: mr                # spoken language for mr_first/single (mr | 
 difficulty: toddler                 # toddler (3–4) | kid (5–6)
 landing: picker                     # start screen: picker ("Choose a game" + "Today's session" card)
                                     # | session (idle screen, one press runs the fixed session)
+camera_rotation: normal             # normal | right | inverted | left: turn the camera picture when the
+                                    # camera is mounted sideways / upside down (supervisor menu)
 session: standard_v1
 session_minutes: 18                 # 12–20
 slots: 3                            # group play 1–4 (stored; group play is not built yet)

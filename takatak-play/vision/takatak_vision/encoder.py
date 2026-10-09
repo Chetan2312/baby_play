@@ -25,6 +25,12 @@ def downscale(img, size):
         return img[::max(1, int(round(fy))), ::max(1, int(round(fx)))][:h, :w]
 
 
+def oriented(size, img):
+    """Transport size turned to match the frame: a portrait (rotated) frame → portrait size."""
+    w, h = size
+    return (min(w, h), max(w, h)) if img.shape[0] > img.shape[1] else (max(w, h), min(w, h))
+
+
 def encode_jpeg(rgbx, quality):
     """rgbx: (H, W, 3|4) uint8 in R,G,B(,X) order."""
     rgbx = np.ascontiguousarray(rgbx)
@@ -77,7 +83,7 @@ class FrameEncoder(threading.Thread):
             if now - last < period:
                 time.sleep(period - (now - last))
             last = time.monotonic()
-            img = downscale(bundle.main, self.size) if self.size else bundle.main
+            img = downscale(bundle.main, oriented(self.size, bundle.main)) if self.size else bundle.main
             img = img[:, ::-1] if self.mirror else img
             try:
                 jpg = encode_jpeg(img, self.quality)
