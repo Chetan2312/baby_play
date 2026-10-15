@@ -588,7 +588,7 @@ class HandThread(threading.Thread):
                 continue
             self.error = None
             self.results.put(msg)
-            if self.perf is not None:
+            if self.perf is not None and msg["hands"]:   # frames without hands would dilute it to ~0
                 self.perf.means["hand_latency_ms"].add((time.monotonic() - bundle.t) * 1000)
             if self.rate:
                 self.rate.tick()
