@@ -5,8 +5,12 @@ gesture events, plus fps and live check scores.
 
 Can't share the camera with a running vision service: stop that first.
 
-Keys: C switch camera · T toddler/kid · M single/duo · I keypoint names · Esc/Q quit
+Keys: C switch camera · T toddler/kid · M single/duo · I keypoint names · H hand tracking on/off ·
+      R raised hands only / all hands · Esc/Q quit
   --mock   use the synthetic child instead of camera + Hailo (works on a PC)
+
+Hand tracking (21 points: palm, fingers, gesture) runs while H is on, like a game that
+subscribes to hands. fps + latency go to logs/vision_perf.log every perf.log_every_s.
 """
 import argparse
 import collections
@@ -21,9 +25,12 @@ import pygame  # noqa: E402
 
 from takatak_vision.config import load_config  # noqa: E402
 from takatak_vision.gestures import KEYPOINT_NAMES, LEFT_SIDE, SKELETON  # noqa: E402
+from takatak_vision.hands import CONNECTIONS, TIPS  # noqa: E402
 from takatak_vision.lifecycle import Shutdown  # noqa: E402
 
 GOLD, GREEN, SKY, ORANGE, WHITE = (255, 205, 40), (120, 230, 120), (90, 200, 255), (255, 150, 60), (255, 255, 255)
+PINK = (255, 90, 200)
+PALM = (0, 1, 5, 9, 13, 17)   # wrist, thumb base, knuckles: the palm outline
 
 
 def main():
@@ -46,6 +53,9 @@ def main():
         source = HardwareSource(cfg, args.video)
     source.start()
     source.set_frames_wanted(True)
+    hands_on = bool((cfg.get("hands") or {}).get("enabled", False))
+    source.set_hands_wanted(hands_on)
+    hands_slot = getattr(source, "hands_results", None)
 
     pygame.init()
     if args.windowed:
@@ -63,7 +73,7 @@ def main():
     gesture_log = collections.deque(maxlen=10)
     states = {}            # (player, name) -> state
     res_seq = frame_seq = 0
-    frame_surf, frame_rect, res = None, pygame.Rect(0, 0, W, H), None
+    frame_surf, frame_rect, res, hands_msg = None, pygame.Rect(0, 0, W, H), None, None
     labels = True
     difficulty = cfg["gestures"]["default_difficulty"]
     mode = cfg["tracker"]["mode"]
@@ -99,6 +109,13 @@ def main():
                         source.set_players(mode)
                     elif ev.key == pygame.K_i:
                         labels = not labels
+                    elif ev.key == pygame.K_h:
+                        hands_on = not hands_on
+                        source.set_hands_wanted(hands_on)
+                        hands_msg = None
+                    elif ev.key == pygame.K_r and getattr(source, "hands", None):
+                        hcfg = source.hands.hcfg   # read every frame by HandThread.process
+                        hcfg["only_raised"] = not hcfg.get("only_raised", True)
 
             seq, item = source.frames.get()
             if item is not None and seq != frame_seq:
@@ -143,6 +160,26 @@ def main():
                             if labels:
                                 screen.blit(small.render(n, True, WHITE), (pt[0] + 8, pt[1] - 10))
 
+            if hands_on and hands_slot is not None:
+                _, m = hands_slot.get()
+                if m is not None:
+                    hands_msg = m
+            for h in (hands_msg or {}).get("hands", []) if hands_on else []:
+                pts = [to_screen(x, y) for x, y in h["kp"]]
+                col = SKY if h["side"] == "l" else ORANGE
+                outline = [pts[i] for i in PALM]
+                box = pygame.Rect(min(p[0] for p in outline), min(p[1] for p in outline), 1, 1)
+                box.union_ip(pygame.Rect(max(p[0] for p in outline), max(p[1] for p in outline), 1, 1))
+                palm = pygame.Surface(box.size, pygame.SRCALPHA)   # small: just the palm, not the screen
+                pygame.draw.polygon(palm, (*col, 70), [(x - box.x, y - box.y) for x, y in outline])
+                screen.blit(palm, box.topleft)
+                for a, b in CONNECTIONS:
+                    pygame.draw.line(screen, col, pts[a], pts[b], max(2, int(4 * u)))
+                for i, pt in enumerate(pts):
+                    up = i in TIPS and h["fingers"][TIPS.index(i)]
+                    pygame.draw.circle(screen, PINK if up else WHITE, pt, max(3, int((9 if i in TIPS else 5) * u)))
+                text(f"p{h['player']} {h['side']}: {h['gesture']} {h['count']}", (pts[0][0] + 12, pts[0][1] + 8), small)
+
             ui_frames += 1
             now = time.monotonic()
             if now - ui_t0 >= 1.0:
@@ -152,6 +189,12 @@ def main():
             y = 16
             y += text(f"{'  '.join(f'{k} {v:4.1f}' for k, v in fps.items())}  ui {ui_fps:4.1f} fps   "
                       f"lat {source.perf.latency_ms.value:3.0f} ms", (16, y))
+            lat = source.perf.latencies()
+            hthread = getattr(source, "hands", None)
+            raised = ("   raised only (R)" if hthread.hcfg.get("only_raised", True) else "   all hands (R)") if hthread else ""
+            y += text(f"hands: {'on' if hands_on else 'off'} (H)" + (
+                f"{raised}   model {lat['hand_ms']:3.0f} ms/hand   "
+                f"capture-to-hands {lat['hand_latency_ms']:3.0f} ms" if hands_on else ""), (16, y))
             y += text(f"camera: {source.camera_name}   tolerances: {difficulty} (T)   players: {mode} (M)", (16, y))
             if res is not None:
                 y += text(f"active: {res.active_ids}   no_player: {res.no_player_s:.1f}s", (16, y))
