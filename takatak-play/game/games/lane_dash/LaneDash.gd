@@ -2,8 +2,9 @@ extends "res://core/BaseGame.gd"
 ## Ninja Dash: a reaction + rhythm game (like a rhythm slasher, for 3–6 year olds).
 ## Two lanes run from the horizon towards the child. On the beat of an original,
 ## synthesized song (BeatSynth: kick, clap, hi-hat, bass), circles and squares come down
-## the lanes. The child steps left / right — which half of the screen the body (hips,
-## else shoulders) is in picks the lane:
+## the lanes. The child steps left / right — which half of the screen the body (hips and
+## shoulders; a little ahead, from its speed, so a step counts as it starts) is in picks the
+## lane. Hits have a fair window (hit_grace_s) around the arrival:
 ##   circle reaches your lane → smash: +1, stars
 ##   square reaches your lane → crash: −1 life, red flash, shake; no lives left = game over
 ##   square in the other lane → whoosh, dodged
@@ -23,6 +24,7 @@ const BeatSynth = preload("res://core/BeatSynth.gd")
 const GOOD := Color(0.45, 0.95, 0.45)
 const BAD := Color(1.0, 0.35, 0.3)
 const HEART := Color(1.0, 0.35, 0.6)
+const LANE_COLS := [Color(0.25, 0.6, 1.0), Color(1.0, 0.55, 0.15)]   # left blue · right orange
 const HUD_HEARTS := 5           # more lives than this: one heart + "×n"
 const FLASH_S := 0.5
 const BASS := [130.81, 130.81, 220.0, 220.0, 174.61, 174.61, 196.0, 196.0]   # C C A A F F G G
@@ -66,6 +68,12 @@ var _next_life_at := 0          # score that drops the next heart; 0 = no hearts
 var lives_won := 0
 var best := 0
 var new_best := false
+var _body_x := -1.0             # last body x (display), its speed (per s) and when it arrived
+var _body_vel := 0.0
+var _body_at := 0.0
+var _body_seq := -1
+var _marker_x := -1.0           # the ninja star glides between lanes (fraction of width)
+var _lane_flash := 0.0          # the new lane flashes after a switch, 1 → 0
 
 
 func _init() -> void:
@@ -213,15 +221,19 @@ func spawn_object(kind: String, l: int, arrive: float) -> Dictionary:
 
 # ---- the child's lane ------------------------------------------------------------
 
-## Display x of the body centre (hips, else shoulders); −1 when nobody is seen.
+## Display x of the body centre: mean of the hip and shoulder midpoints that are seen
+## (shoulders lead when a child leans into a step, hips when they step); −1 when nobody is seen.
 static func body_x(person: Dictionary) -> float:
 	var kp: Dictionary = person.get("kp", {})
+	var sum := 0.0
+	var n := 0
 	for pair in [["l_hip", "r_hip"], ["l_shoulder", "r_shoulder"]]:
 		var a = kp.get(pair[0], null)
 		var b = kp.get(pair[1], null)
 		if a != null and b != null and float(a[2]) > 0.3 and float(b[2]) > 0.3:
-			return (float(a[0]) + float(b[0])) / 2.0
-	return -1.0
+			sum += (float(a[0]) + float(b[0])) / 2.0
+			n += 1
+	return sum / n if n > 0 else -1.0
 
 
 ## Lane from body x with a dead zone around the middle (keeps the current lane there).
@@ -235,10 +247,32 @@ static func lane_of(x: float, current: int, margin: float) -> int:
 	return current
 
 
+## Body x a moment ahead (lane_lookahead_s) from its speed between pose updates, so a step
+## switches the lane as it starts, not when the body has crossed the middle. The lead is
+## capped (lane_lookahead_max) and only used while the pose is fresh.
+func _predicted_body_x() -> float:
+	var x := body_x(VisionClient.active_people[0])
+	var now := Time.get_ticks_msec() / 1000.0
+	if x < 0.0:
+		_body_x = -1.0
+		return -1.0
+	if VisionClient.poses_received != _body_seq:
+		if _body_x >= 0.0:
+			var dt := maxf(0.01, now - _body_at)
+			_body_vel = lerpf(_body_vel, (x - _body_x) / dt, 0.5)
+		_body_x = x
+		_body_at = now
+		_body_seq = VisionClient.poses_received
+	if now - _body_at > 0.15:          # stale pose: no guessing
+		return x
+	var cap := float(d("lane_lookahead_max", 0.08))
+	return x + clampf(_body_vel * float(d("lane_lookahead_s", 0.08)), -cap, cap)
+
+
 func _update_lane() -> void:
 	if VisionClient.active_people.is_empty():
 		return
-	var new_lane := lane_of(body_x(VisionClient.active_people[0]), lane, float(d("lane_margin", 0.04)))
+	var new_lane := lane_of(_predicted_body_x(), lane, float(d("lane_margin", 0.04)))
 	if new_lane == lane:
 		return
 	var now := Time.get_ticks_msec()
@@ -248,6 +282,7 @@ func _update_lane() -> void:
 			reactions.append((now - int(o["spawned_ms"])) / 1000.0)
 	lane = new_lane
 	_lane_since_ms = now
+	_lane_flash = 1.0
 
 
 # ---- loop ----------------------------------------------------------------------
@@ -257,6 +292,9 @@ func _process(delta: float) -> void:
 	_flash = maxf(0.0, _flash - delta / FLASH_S)
 	_shake = maxf(0.0, _shake - delta)
 	_pulse = maxf(0.0, _pulse - delta * 3.0)
+	_lane_flash = maxf(0.0, _lane_flash - delta * 4.0)
+	var target := _lane_x(lane, 1.0)   # star glides to the lane: ~90 % of the way in 0.12 s
+	_marker_x = target if _marker_x < 0.0 else lerpf(_marker_x, target, 1.0 - exp(-delta * 19.0))
 	for r in _bursts:
 		r["t"] += delta
 	_bursts = _bursts.filter(func(r): return float(r["t"]) < 0.45)
@@ -305,17 +343,21 @@ func _on_beat(b: int) -> void:
 		spawn_object(o["kind"], o["lane"], b + float(d("travel_beats", 4)))
 
 
-## Objects that reached the hit line: smash, crash or dodge.
+## Objects at the hit line: smash, crash or dodge, with a fair window of hit_grace_s around
+## the arrival: a circle / heart counts as soon as the child is in its lane inside the
+## window; a square only crashes if the child is still in its lane when the window ends.
 func _resolve() -> void:
 	var view := get_viewport_rect().size
+	var grace := float(d("hit_grace_s", 0.12)) * bpm / 60.0   # in beats
 	var i := 0
 	while i < objects.size():
 		var o: Dictionary = objects[i]
-		if beat_pos < float(o["arrive"]):
+		var mine := int(o["lane"]) == lane
+		var early: bool = o["kind"] != "square" and mine and beat_pos >= float(o["arrive"]) - grace
+		if not early and beat_pos < float(o["arrive"]) + grace:
 			i += 1
 			continue
 		objects.remove_at(i)
-		var mine := int(o["lane"]) == lane
 		var pos := Vector2(_lane_x(int(o["lane"]), 1.0) * view.x, float(d("hit_y", 0.86)) * view.y)
 		if o["kind"] == "heart":
 			if mine:
@@ -425,8 +467,8 @@ func _finish_game() -> void:
 
 ## Lane centre x (fraction of width) at depth p (0 = horizon, 1 = hit line).
 func _lane_x(l: int, p: float) -> float:
-	var top: Array = d("lane_x_top", [0.46, 0.54])
-	var bot: Array = d("lane_x_bottom", [0.3, 0.7])
+	var top: Array = d("lane_x_top", [0.4, 0.6])
+	var bot: Array = d("lane_x_bottom", [0.27, 0.73])
 	return lerpf(float(top[l]), float(bot[l]), p)
 
 
@@ -437,7 +479,7 @@ func _depth_y(p: float, view: Vector2) -> float:
 ## Depth for an object: 0 when it drops, 1 when it arrives; eased so it speeds up as it nears.
 func _depth(o: Dictionary) -> float:
 	var travel := float(d("travel_beats", 4))
-	var k := clampf(1.0 - (float(o["arrive"]) - beat_pos) / travel, 0.0, 1.0)
+	var k := clampf(1.0 - (float(o["arrive"]) - beat_pos) / travel, 0.0, 1.06)   # a little past the line
 	return k * k
 
 
@@ -474,19 +516,49 @@ func _draw() -> void:
 		GameFx.draw_score(self, view, u, score, _flash, st == St.SUMMARY)
 
 
+## Lane corners at depth 0 (horizon) and the bottom edge (just below the hit line).
+func _lane_poly(l: int, view: Vector2, u: float) -> PackedVector2Array:
+	var w_top := float(d("lane_w_top", 0.1))
+	var w_bot := float(d("lane_w_bottom", 0.34))
+	var yb := _depth_y(1.0, view) + 60.0 * u
+	return PackedVector2Array([
+		Vector2((_lane_x(l, 0.0) - w_top / 2.0) * view.x, _depth_y(0.0, view)),
+		Vector2((_lane_x(l, 0.0) + w_top / 2.0) * view.x, _depth_y(0.0, view)),
+		Vector2((_lane_x(l, 1.0) + w_bot / 2.0) * view.x, yb),
+		Vector2((_lane_x(l, 1.0) - w_bot / 2.0) * view.x, yb)])
+
+
+## Two clearly separate lanes over the camera picture: a dark road under both, each lane
+## in its own colour (left blue, right orange), the child's lane bright with a thick edge
+## (and a flash when they switch), a dashed divider in the middle, ◀ ▶ at the bottom.
 func _draw_track(view: Vector2, u: float) -> void:
+	var a := _lane_poly(0, view, u)
+	var b := _lane_poly(1, view, u)
+	var pad := 14.0 * u
+	draw_colored_polygon(PackedVector2Array([a[0] + Vector2(-pad, 0), b[1] + Vector2(pad, 0),
+		b[2] + Vector2(pad, 0), a[3] + Vector2(-pad, 0)]), Color(0.03, 0.04, 0.1, 0.45))
 	for l in 2:
-		var w_top := 0.05
-		var w_bot := 0.19
-		var pts := PackedVector2Array([
-			Vector2((_lane_x(l, 0.0) - w_top / 2.0) * view.x, _depth_y(0.0, view)),
-			Vector2((_lane_x(l, 0.0) + w_top / 2.0) * view.x, _depth_y(0.0, view)),
-			Vector2((_lane_x(l, 1.0) + w_bot / 2.0) * view.x, _depth_y(1.0, view) + 40.0 * u),
-			Vector2((_lane_x(l, 1.0) - w_bot / 2.0) * view.x, _depth_y(1.0, view) + 40.0 * u)])
-		var col := Color(UiKit.GOLD, 0.22) if l == lane else Color(0.4, 0.6, 1.0, 0.14)
-		draw_colored_polygon(pts, col)
-		draw_polyline(PackedVector2Array([pts[0], pts[3]]), Color(1, 1, 1, 0.35), 3.0 * u)
-		draw_polyline(PackedVector2Array([pts[1], pts[2]]), Color(1, 1, 1, 0.35), 3.0 * u)
+		var pts := _lane_poly(l, view, u)
+		var col: Color = LANE_COLS[l]
+		var mine := l == lane
+		var fill := 0.34 + 0.3 * _lane_flash if mine else 0.1
+		draw_colored_polygon(pts, Color(col, fill))
+		var edge := PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]])
+		draw_polyline(edge, Color(col.lightened(0.3), 1.0 if mine else 0.45), (8.0 if mine else 3.0) * u, true)
+		# ◀ ▶ under the hit line, towards each lane's outer edge (clear of the ninja star)
+		var dir := -1.0 if l == 0 else 1.0
+		var c := Vector2((_lane_x(l, 1.0) + dir * float(d("lane_w_bottom", 0.34)) * 0.3) * view.x,
+			_depth_y(1.0, view) + 36.0 * u)
+		var s := 26.0 * u
+		draw_colored_polygon(PackedVector2Array([c + Vector2(dir * s, 0), c + Vector2(-dir * 0.6 * s, -0.8 * s),
+			c + Vector2(-dir * 0.6 * s, 0.8 * s)]), Color(col.lightened(0.4), 0.95 if mine else 0.5))
+	# dashed divider down the middle, scrolling with the beat
+	for k in 10:
+		var p0 := fmod(float(k) / 10.0 + fmod(beat_pos, 1.0) / 10.0, 1.0)
+		var p1 := minf(p0 + 0.05, 1.0)
+		var y0 := _depth_y(p0 * p0, view)
+		var y1 := _depth_y(p1 * p1, view)
+		draw_line(Vector2(view.x * 0.5, y0), Vector2(view.x * 0.5, y1), Color(1, 1, 1, 0.35 + 0.45 * p0), (3.0 + 7.0 * p0) * u)
 	# lane stripes scrolling with the beat: the track moves to the music
 	for k in 6:
 		var p := fmod(float(k) / 6.0 + fmod(beat_pos, 1.0) / 6.0, 1.0)
@@ -494,10 +566,20 @@ func _draw_track(view: Vector2, u: float) -> void:
 		var y := _depth_y(p, view)
 		for l in 2:
 			var x := _lane_x(l, p) * view.x
-			draw_line(Vector2(x - 6 * u * (0.3 + p), y), Vector2(x + 6 * u * (0.3 + p), y), Color(1, 1, 1, 0.25 + 0.3 * p), 3.0 * u)
-	# hit line, pulsing on the beat
+			var w := 10.0 * u * (0.3 + 1.5 * p)
+			draw_line(Vector2(x - w, y), Vector2(x + w, y), Color(1, 1, 1, 0.2 + 0.3 * p), 3.0 * u)
+	# hit line per lane, pulsing on the beat
 	var hy := _depth_y(1.0, view)
-	draw_line(Vector2(view.x * 0.18, hy), Vector2(view.x * 0.82, hy), Color(1, 1, 1, 0.3 + 0.5 * _pulse), (4.0 + 6.0 * _pulse) * u)
+	for l in 2:
+		var w := float(d("lane_w_bottom", 0.34)) * 0.5 * view.x * 0.95
+		var x := _lane_x(l, 1.0) * view.x
+		draw_line(Vector2(x - w, hy), Vector2(x + w, hy), Color(1, 1, 1, 0.35 + 0.5 * _pulse), (4.0 + 6.0 * _pulse) * u)
+	# where the body really is (the lane switches when it crosses the middle): instant feedback
+	if _body_x >= 0.0 and not VisionClient.active_people.is_empty():
+		var bx := VisionClient.to_screen(Vector2(body_x(VisionClient.active_people[0]), 0.5), view).x
+		var by := _depth_y(1.0, view) + 80.0 * u
+		draw_circle(Vector2(bx, by), 12.0 * u, Color(LANE_COLS[0 if bx < view.x * 0.5 else 1] as Color, 0.95))
+		draw_arc(Vector2(bx, by), 12.0 * u, 0.0, TAU, 24, Color.WHITE, 3.0 * u, true)
 
 
 func _draw_object(o: Dictionary, view: Vector2, u: float) -> void:
@@ -524,9 +606,9 @@ func _draw_object(o: Dictionary, view: Vector2, u: float) -> void:
 
 ## The child's marker: a spinning ninja star at the hit line of their lane.
 func _draw_player(view: Vector2, u: float) -> void:
-	var c := Vector2(_lane_x(lane, 1.0) * view.x, _depth_y(1.0, view))
-	var r := 46.0 * u * (1.0 + 0.15 * _pulse)
-	draw_circle(c, r * 1.3, Color(UiKit.GOLD, 0.25))
+	var c := Vector2((_marker_x if _marker_x >= 0.0 else _lane_x(lane, 1.0)) * view.x, _depth_y(1.0, view))
+	var r := 46.0 * u * (1.0 + 0.15 * _pulse + 0.25 * _lane_flash)
+	draw_circle(c, r * 1.3, Color(LANE_COLS[lane] as Color, 0.35))
 	var pts := PackedVector2Array()
 	for k in 8:
 		var a := _t * 6.0 + k * PI / 4.0

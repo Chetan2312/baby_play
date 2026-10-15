@@ -19,9 +19,15 @@ session_level: { toddler: easy, kid: medium }
 settings:
   horizon_y: 0.2                # where the lanes start (fraction of screen height)
   hit_y: 0.86                   # where objects reach the child
-  lane_x_bottom: [0.3, 0.7]     # lane centres at the hit line (fraction of width)
-  lane_x_top: [0.46, 0.54]      # lane centres at the horizon
+  lane_x_bottom: [0.27, 0.73]   # lane centres at the hit line (fraction of width)
+  lane_x_top: [0.4, 0.6]        # lane centres at the horizon (apart, so the lanes never merge)
+  lane_w_bottom: 0.34           # lane width at the hit line / at the horizon (fraction of width):
+  lane_w_top: 0.1               #   leaves a clear gap with a dashed divider in the middle
   lane_margin: 0.04             # body x must pass 0.5 ± this to change lane (no flicker)
+  lane_lookahead_s: 0.08        # lane follows where the body will be this much later (its speed) …
+  lane_lookahead_max: 0.08      # … but never more than this far ahead (fraction of width)
+  hit_grace_s: 0.12             # fair window around the arrival: a circle counts as soon as you're in
+                                # its lane inside it; a square only crashes if you're still there after it
   countdown_beats: 4            # 3 · 2 · 1 · GO
   min_gap_beats: 2              # time to switch sides between squares in different lanes
   bpm_ramp: 4                   # the song speeds up by this many bpm …
