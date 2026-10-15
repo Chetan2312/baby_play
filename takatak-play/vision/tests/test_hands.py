@@ -309,3 +309,20 @@ def test_lite_model_missing_is_a_friendly_error(monkeypatch):
     monkeypatch.setattr(H, "vision_path", lambda p: "/nonexistent/" + p)
     with pytest.raises(H.HandsError, match="hand_landmark_lite.tflite not found"):
         H.lite_model_path()
+
+
+@pytest.mark.skipif(not os.path.exists(vision_path(H.MODEL)), reason="hand model not downloaded")
+def test_worker_process_runs_the_litert_backend():
+    try:
+        H._load_interpreter_class()
+    except H.HandsError as e:
+        pytest.skip(str(e))
+    w = H.HandWorker(litert={"workers": 1, "threads": 1, "landmarks": "full"}, start_timeout_s=60)
+    try:
+        assert w.input_size == 224
+        blank = np.zeros((224, 224, 3), np.uint8)
+        assert w.run([((1, "l"), blank), ((1, "r"), blank)], 1) == {(1, "l"): None, (1, "r"): None}
+        w.forget([])
+    finally:
+        w.close()
+    assert not w.proc.is_alive()

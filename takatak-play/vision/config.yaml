@@ -155,9 +155,9 @@ hands:
   only_raised: true               # track only raised hands (wrist above elbow): pointing is up
   box_scale: 2.4                  # hand box side ÷ estimated hand length (finding a hand from the pose)
   min_conf: 0.4                   # hand presence below this → no hand (box goes back to the pose)
-  process: false                  # mediapipe only: true = hand model in its own process. Measured: MediaPipe
-                                  # releases the Python lock, so in-process doesn't slow camera/pose; the
-                                  # process only adds memory.
+  process: false                  # true = hand model in its own process (either backend): the hands then share
+                                  # no Python lock with camera / pose / JPEG. Try it if pose latency (lat)
+                                  # rises with hands on; costs some memory and ~1 ms per hand for the pipe.
   other_every: 3                  # while a hand points, other hands are tracked every Nth frame
   one_euro:                       # finger smoothing: quicker than the body points
     min_cutoff: 2.0

@@ -288,8 +288,8 @@ def _landmark_model_bytes(model_path):
 
 
 def lite_model_path():
-    """hand_landmark_lite.tflite: vision/models/ if copied there, else the one inside the
-    installed mediapipe package (found without importing mediapipe)."""
+    """hand_landmark_lite.tflite: vision/models/ (tools/fetch_hand_model.sh), else the one inside an
+    older installed mediapipe package (found without importing mediapipe)."""
     local = vision_path(os.path.join("models", LITE_TFLITE))
     if os.path.exists(local):
         return local
@@ -299,8 +299,8 @@ def lite_model_path():
         p = os.path.join(d, "modules", "hand_landmark", LITE_TFLITE)
         if os.path.exists(p):
             return p
-    raise HandsError(f"{LITE_TFLITE} not found: install mediapipe (requirements-hands.txt) "
-                     f"or copy it to vision/models/, or set hands.landmarks: full")
+    raise HandsError(f"{LITE_TFLITE} not found: run vision/tools/fetch_hand_model.sh "
+                     f"(or set hands.landmarks: full)")
 
 
 class LiteRTHands:
@@ -362,15 +362,16 @@ class LiteRTHands:
         self._exec.shutdown(wait=False)
 
 
-def _worker_main(conn, model, min_conf):
-    """Child process: owns the MediaPipe trackers. Messages: ("track", (jobs, t_ms)) →
-    ("result", {key: res}) · ("forget", keys) · None = quit."""
+def _worker_main(conn, model, min_conf, litert=None):
+    """Child process: owns the hand model (litert: LiteRTHands options; None: MediaPipe).
+    Messages: ("track", (jobs, t_ms)) → ("result", {key: res}) · ("forget", keys) · None = quit."""
     try:
-        tracker = HandTracker(model, min_conf)
+        backend = LiteRTHands(model, min_conf, **litert) if litert is not None \
+            else InProcessHands(HandTracker(model, min_conf))
     except HandsError as e:
         conn.send(("error", str(e)))
         return
-    conn.send(("ready", None))
+    conn.send(("ready", getattr(backend, "input_size", None)))
     try:
         while True:
             msg = conn.recv()
@@ -378,25 +379,26 @@ def _worker_main(conn, model, min_conf):
                 break
             kind, payload = msg
             if kind == "forget":
-                tracker.forget(set(payload))
+                backend.forget(payload)
             elif kind == "track":
                 jobs, t_ms = payload
-                conn.send(("result", {key: tracker.track_crop(key, crop, t_ms) for key, crop in jobs}))
+                conn.send(("result", backend.run(jobs, t_ms)))
     except (EOFError, KeyboardInterrupt):
         pass
     finally:
-        tracker.close()
+        backend.close()
 
 
 class HandWorker:
     """Hand model in its OWN PROCESS (another CPU core, no Python GIL shared with the camera,
-    pose and JPEG threads). Only the small hand crops cross the pipe (~100 KB each)."""
+    pose and JPEG threads). Only the small hand crops cross the pipe (~150 KB each).
+    litert: LiteRTHands options (landmark model only), None: MediaPipe Hand Landmarker."""
 
-    def __init__(self, model=MODEL, min_conf=0.4, start_timeout_s=60.0, reply_timeout_s=2.0):
+    def __init__(self, model=MODEL, min_conf=0.4, start_timeout_s=60.0, reply_timeout_s=2.0, litert=None):
         import multiprocessing as mproc
         ctx = mproc.get_context("spawn")   # a clean child: no camera / Hailo state inherited
         self.conn, child = ctx.Pipe()
-        self.proc = ctx.Process(target=_worker_main, args=(child, model, min_conf), daemon=True,
+        self.proc = ctx.Process(target=_worker_main, args=(child, model, min_conf, litert), daemon=True,
                                 name="takatak-hands")
         self.proc.start()
         child.close()
@@ -408,6 +410,7 @@ class HandWorker:
         if kind == "error":
             self.close()
             raise HandsError(payload)
+        self.input_size = payload            # litert: the model's input; None: any (MediaPipe)
 
     def run(self, jobs, t_ms):
         self.conn.send(("track", (jobs, t_ms)))
@@ -467,11 +470,14 @@ class HandThread(threading.Thread):
     def _open(self):
         if self._backend is None:
             model, conf = self.hcfg.get("model", MODEL), float(self.hcfg.get("min_conf", 0.4))
+            litert = None
             if self.hcfg.get("backend", "litert") == "litert":
-                self._backend = LiteRTHands(model, conf, self.hcfg.get("workers", 2), self.hcfg.get("threads", 1),
-                                            self.hcfg.get("landmarks", "full"))
-            elif self.hcfg.get("process", False):
-                self._backend = HandWorker(model, conf)
+                litert = {"workers": self.hcfg.get("workers", 2), "threads": self.hcfg.get("threads", 1),
+                          "landmarks": self.hcfg.get("landmarks", "full")}
+            if self.hcfg.get("process", False):
+                self._backend = HandWorker(model, conf, litert=litert)
+            elif litert is not None:
+                self._backend = LiteRTHands(model, conf, **litert)
             else:
                 self._backend = InProcessHands(HandTracker(model, conf))
         self.ready = True

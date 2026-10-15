@@ -15,6 +15,7 @@ vision/models/*.part
 vision/models/*/*.hef
 vision/models/*/*.part
 vision/models/*.task
+vision/models/*.tflite
 
 # packaged field builds (tools/make_field_build.py)
 dist/
