@@ -1,11 +1,15 @@
-"""Hand tracking: 21 landmarks per hand (MediaPipe Hand Landmarker, CPU), fingers, gesture.
+"""Hand tracking: 21 landmarks per hand (MediaPipe hand landmark model, CPU), fingers, gesture.
 
 The pose model finds each child's wrists and elbows but no fingers, and a child's hand at
-play distance is only ~30–40 px in the 960-wide stream. So:
-  1. hand_roi(): a square box around each hand, from the pose wrist + elbow, in a
-     HIGH-RESOLUTION camera frame (e.g. 1920×1080 main stream);
-  2. the crop goes to the hand landmarker (one tracker per player hand, VIDEO mode, so
-     palm detection is skipped while the hand stays tracked);
+play distance is only ~30–40 px in the 960-wide stream. So, in the HIGH-RESOLUTION camera
+frame (e.g. 1920×1080 main stream):
+  1. a square box per hand, turned so the hand points up: from the hand's own landmarks
+     of the previous frame while it stays tracked (landmark_rect), else from the pose
+     wrist + elbow (pose_rect). warp_rect() cuts it straight to the model input size;
+  2. backend "litert" (default): only the landmark model (hand_landmarks_detector.tflite,
+     read from the .task bundle) runs on LiteRT, no palm detector: the box already says
+     where the hand is. Hands run in parallel on a small interpreter pool.
+     backend "mediapipe": the full Hand Landmarker (palm detector + landmarks), slower;
   3. fingers_extended() / gesture(): which fingers are up → count, open, fist, point.
 
 Landmark order (MediaPipe): 0 wrist · thumb 1–4 · index 5–8 · middle 9–12 · ring 13–16 ·
@@ -17,8 +21,11 @@ in memory; nothing is saved.
 """
 import math
 import os
+import queue
 import threading
 import time
+import zipfile
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -35,6 +42,8 @@ CONNECTIONS = ((0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8), (
                (11, 12), (9, 13), (13, 14), (14, 15), (15, 16), (13, 17), (17, 18), (18, 19), (19, 20), (0, 17))
 TIPS = (4, 8, 12, 16, 20)
 HAND_PER_FOREARM = 0.6
+LANDMARK_TFLITE = "hand_landmarks_detector.tflite"   # inside the .task bundle
+RECT_POINTS = (0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18)   # palm + finger bases: steady box size
 
 
 class HandsError(Exception):
@@ -58,6 +67,65 @@ def hand_roi(wrist, elbow, frame_w, frame_h, scale=2.4, min_px=64):
     y0 = min(max(0, y0), max(0, frame_h - int(side)))
     x1, y1 = min(frame_w, x0 + int(side)), min(frame_h, y0 + int(side))
     return x0, y0, x1, y1
+
+
+def pose_rect(wrist, elbow, scale=2.4, min_px=64):
+    """Turned hand box from the pose: (cx, cy, side, ux, uy) in frame pixels.
+
+    wrist / elbow in frame pixels. (ux, uy): unit vector the fingers point to (elbow →
+    wrist); the box centre sits beyond the wrist, side = scale × estimated hand length.
+    """
+    fx, fy = wrist[0] - elbow[0], wrist[1] - elbow[1]
+    n = math.hypot(fx, fy)
+    if n < 1e-6:
+        return wrist[0], wrist[1], float(min_px), 0.0, -1.0
+    side = max(min_px, n * HAND_PER_FOREARM * scale)
+    return wrist[0] + fx * 0.45, wrist[1] + fy * 0.45, side, fx / n, fy / n
+
+
+def landmark_rect(lm, min_px=64):
+    """Turned hand box from last frame's landmarks (frame pixels, (21, 2+)), as MediaPipe
+    tracks: up = wrist → middle of the knuckles, side = 2 × the palm/finger-base extent."""
+    p = np.asarray(lm, dtype=np.float64)[:, :2]
+    m = ((p[5] + p[13]) / 2 + p[9]) / 2
+    d = m - p[0]
+    n = float(np.hypot(*d))
+    if n < 1e-6:
+        return None
+    u = d / n
+    r = np.array([-u[1], u[0]])
+    pts = p[list(RECT_POINTS)]
+    a, b = pts @ r, pts @ u
+    size = max(a.max() - a.min(), b.max() - b.min())
+    c = r * (a.max() + a.min()) / 2 + u * (b.max() + b.min()) / 2 + u * 0.1 * size
+    return float(c[0]), float(c[1]), max(float(min_px), 2.0 * size), float(u[0]), float(u[1])
+
+
+def rect_matrix(rect, size):
+    """2×3 affine: model input pixel (a, b) → frame pixel. Input "up" = the hand's up."""
+    cx, cy, side, ux, uy = rect
+    rx, ry = -uy, ux
+    k = side / size
+    return np.array([[k * rx, -k * ux, cx - side / 2 * (rx - ux)],
+                     [k * ry, -k * uy, cy - side / 2 * (ry - uy)]])
+
+
+def warp_rect(frame, rect, size):
+    """Cut the turned box out of the frame as a (size, size, 3) uint8 image (outside = black)."""
+    import cv2
+    out = cv2.warpAffine(frame, rect_matrix(rect, size), (size, size),
+                         flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_CONSTANT)
+    return np.ascontiguousarray(out[..., :3])
+
+
+def rect_to_frame(lm_norm, rect, frame_w, frame_h):
+    """Landmarks normalised to the box → normalised to the full frame."""
+    m = rect_matrix(rect, 1.0)
+    p = np.asarray(lm_norm, dtype=np.float64)
+    out = np.array(p, copy=True)
+    out[:, 0] = (m[0, 0] * p[:, 0] + m[0, 1] * p[:, 1] + m[0, 2]) / frame_w
+    out[:, 1] = (m[1, 0] * p[:, 0] + m[1, 1] * p[:, 1] + m[1, 2]) / frame_h
+    return out
 
 
 def fingers_extended(lm):
@@ -188,6 +256,95 @@ class InProcessHands:
         self.tracker.close()
 
 
+def _load_interpreter_class():
+    try:
+        from ai_edge_litert.interpreter import Interpreter
+        return Interpreter
+    except ImportError:
+        pass
+    try:
+        from tflite_runtime.interpreter import Interpreter
+        return Interpreter
+    except ImportError:
+        pass
+    try:
+        from tensorflow.lite import Interpreter
+        return Interpreter
+    except ImportError as e:
+        raise HandsError(f"LiteRT not installed ({e}): .env/bin/pip install -r vision/requirements-hands.txt") from e
+
+
+def _landmark_model_bytes(model_path):
+    """The landmark model: a .tflite file, or read from the MediaPipe .task bundle (a zip)."""
+    if model_path.endswith(".tflite"):
+        with open(model_path, "rb") as f:
+            return f.read()
+    try:
+        with zipfile.ZipFile(model_path) as z:
+            return z.read(LANDMARK_TFLITE)
+    except (zipfile.BadZipFile, KeyError) as e:
+        raise HandsError(f"{os.path.basename(model_path)}: no {LANDMARK_TFLITE} inside ({e})") from e
+
+
+class LiteRTHands:
+    """Landmark model only (no palm detector) on LiteRT, `workers` interpreters in parallel
+    (LiteRT releases the Python lock while it runs). Jobs are hand boxes already cut to
+    `input_size`, hand pointing up."""
+
+    def __init__(self, model=MODEL, min_conf=0.4, workers=2, threads=2):
+        model_path = vision_path(model)
+        if not os.path.exists(model_path):
+            raise HandsError(f"hand model missing: {model} (download: curl -L -o vision/{model} {MODEL_URL})")
+        Interpreter = _load_interpreter_class()
+        data = _landmark_model_bytes(model_path)
+        self.min_conf = min_conf
+        self._pool = queue.Queue()
+        for _ in range(max(1, int(workers))):
+            it = Interpreter(model_content=data, num_threads=max(1, int(threads)))
+            it.allocate_tensors()
+            self._pool.put(it)
+        it = self._pool.queue[0]
+        inp = it.get_input_details()[0]
+        self.input_size = int(inp["shape"][1])
+        self._in = inp["index"]
+        outs = sorted(it.get_output_details(), key=lambda d: d["name"])
+        self._lm = next(d["index"] for d in outs if int(np.prod(d["shape"])) == 63)   # screen landmarks
+        self._presence = next(d["index"] for d in outs if int(np.prod(d["shape"])) == 1)
+        self._exec = ThreadPoolExecutor(max_workers=max(1, int(workers)), thread_name_prefix="hand-litert")
+
+    def track_crop(self, crop):
+        """crop: (S, S, 3) uint8 RGB, S = input_size → result dict like HandTracker.track_crop, or None."""
+        x = crop.astype(np.float32)[None] * (1.0 / 255.0)
+        it = self._pool.get()
+        try:
+            it.set_tensor(self._in, x)
+            it.invoke()
+            lm = it.get_tensor(self._lm).reshape(21, 3).astype(np.float64)
+            presence = float(it.get_tensor(self._presence).ravel()[0])
+        finally:
+            self._pool.put(it)
+        if not 0.0 <= presence <= 1.0:                 # a model that outputs a logit
+            presence = 1.0 / (1.0 + math.exp(-presence))
+        if presence < self.min_conf:
+            return None
+        ext = fingers_extended(lm[:, :2])
+        lm[:, :2] /= self.input_size
+        return {"lm_crop": lm, "fingers": ext, "count": int(sum(ext)), "gesture": gesture(ext), "score": presence}
+
+    def run(self, jobs, t_ms):
+        if len(jobs) == 1:
+            key, crop = jobs[0]
+            return {key: self.track_crop(crop)}
+        futs = {key: self._exec.submit(self.track_crop, crop) for key, crop in jobs}
+        return {key: f.result() for key, f in futs.items()}
+
+    def forget(self, keys):
+        pass                                           # stateless: the thread keeps the boxes
+
+    def close(self):
+        self._exec.shutdown(wait=False)
+
+
 def _worker_main(conn, model, min_conf):
     """Child process: owns the MediaPipe trackers. Messages: ("track", (jobs, t_ms)) →
     ("result", {key: res}) · ("forget", keys) · None = quit."""
@@ -258,10 +415,11 @@ class HandThread(threading.Thread):
     """Camera frames + latest pose → hand landmarks for the game (protocol "hands").
 
     Runs only while `wanted` is set (a game subscribed to hands). Per frame, for each active
-    player's (raised) hand: box from the pose wrist/elbow in the high-resolution main frame
-    → hand model (in-process, or its own process with hands.process) → One Euro (hand-tuned) →
-    display space. Focus: a hand that is pointing is tracked every frame, the other hands
-    every `other_every` frames (their last result is re-sent in between).
+    player's (raised) hand: turned box in the high-resolution main frame (from the hand's
+    own last landmarks while tracked, else from the pose wrist/elbow) → hand model
+    (hands.backend) → One Euro (hand-tuned, on capture time) → display space. Focus: a hand
+    that is pointing is tracked every frame, the other hands every `other_every` frames
+    (their last result is re-sent in between).
     """
 
     def __init__(self, cfg, camera_slot, pose_slot, mirror, rate=None, tracker=None, perf=None):
@@ -281,6 +439,7 @@ class HandThread(threading.Thread):
         self._backend = InProcessHands(tracker) if tracker is not None else None
         self._smoothers = {}
         self._last = {}                      # key → last wire dict (re-sent for skipped hands)
+        self._rects = {}                     # key → box from last frame's landmarks (camera frame px)
         self._frame_n = 0
         self._quit = threading.Event()
 
@@ -291,7 +450,9 @@ class HandThread(threading.Thread):
     def _open(self):
         if self._backend is None:
             model, conf = self.hcfg.get("model", MODEL), float(self.hcfg.get("min_conf", 0.4))
-            if self.hcfg.get("process", False):
+            if self.hcfg.get("backend", "litert") == "litert":
+                self._backend = LiteRTHands(model, conf, self.hcfg.get("workers", 2), self.hcfg.get("threads", 2))
+            elif self.hcfg.get("process", False):
                 self._backend = HandWorker(model, conf)
             else:
                 self._backend = InProcessHands(HandTracker(model, conf))
@@ -304,8 +465,10 @@ class HandThread(threading.Thread):
         scale = float(self.hcfg.get("box_scale", 2.4))
         other_every = max(1, int(self.hcfg.get("other_every", 3)))
         self._frame_n += 1
+        size = int(getattr(self._backend, "input_size", None) or 256)
         pointing = {k for k, h in self._last.items() if h["gesture"] == "point"}
-        jobs, rois, keys, carried = [], {}, set(), []
+        jobs, rects, keys, carried = [], {}, set(), []
+        cam = (lambda q: (((1.0 - q[0]) if self.mirror else q[0]) * fw, q[1] * fh))   # display → camera px
         for p in people:
             if not p.get("active"):
                 continue
@@ -320,22 +483,27 @@ class HandThread(threading.Thread):
                 if pointing and key not in pointing and key in self._last and self._frame_n % other_every:
                     carried.append(self._last[key])      # focus on the pointing hand this frame
                     continue
-                cam = (lambda q: ((1.0 - q[0]) if self.mirror else q[0], q[1]))
-                roi = hand_roi(cam(w), cam(e), fw, fh, scale=scale)
-                rois[key] = roi
-                jobs.append((key, np.ascontiguousarray(frame[roi[1]:roi[3], roi[0]:roi[2], :3])))
+                wp, ep = cam(w), cam(e)
+                rect = self._rects.get(key)
+                if rect is not None and math.hypot(rect[0] - wp[0], rect[1] - wp[1]) > rect[2]:
+                    rect = None                          # pose wrist is elsewhere: find the hand again
+                rect = rect or pose_rect(wp, ep, scale=scale)
+                rects[key] = rect
+                jobs.append((key, warp_rect(frame, rect, size)))
         t0 = time.monotonic()
         results = self._backend.run(jobs, t_ms) if jobs else {}
         if self.perf is not None and jobs:
             self.perf.means["hand_ms"].add((time.monotonic() - t0) * 1000 / len(jobs))
         out = list(carried)
-        for key, roi in rois.items():
+        for key, rect in rects.items():
             hand = results.get(key)
             if hand is None:
                 self._smoothers.pop(key, None)
                 self._last.pop(key, None)
+                self._rects.pop(key, None)
                 continue
-            lm = crop_to_frame(hand["lm_crop"], roi, fw, fh)
+            lm = rect_to_frame(hand["lm_crop"], rect, fw, fh)
+            self._rects[key] = landmark_rect(lm[:, :2] * [fw, fh])   # raw (unsmoothed): next box
             lm = self._smooth(key, lm, fw, fh, t_ms / 1000.0)
             disp = mirror_x(lm) if self.mirror else lm
             wire = P.hand_to_wire(key[0], key[1], disp, hand["fingers"], hand["count"], hand["gesture"])
@@ -349,7 +517,10 @@ class HandThread(threading.Thread):
         for k in list(self._last):
             if k not in keys:
                 del self._last[k]
-        return P.hands(frame_id, out)
+        for k in list(self._rects):
+            if k not in keys:
+                del self._rects[k]
+        return P.hands(frame_id, out, ts=t_ms)
 
     def _smooth(self, key, lm, fw, fh, now):
         """One Euro on the 21 points, in the same pixel units as the pose filter (640 wide)."""
@@ -382,7 +553,7 @@ class HandThread(threading.Thread):
             _, res = self.pose_slot.get()
             people = res.pose_msg["people"] if res is not None else []
             try:
-                msg = self.process(bundle.main, people, bundle.frame_id, time.monotonic() * 1000)
+                msg = self.process(bundle.main, people, bundle.frame_id, bundle.t * 1000)   # capture time
             except HandsError as e:            # worker died / stuck: restart it
                 self.error = f"Hand tracking: {e}"
                 self._close_backend()

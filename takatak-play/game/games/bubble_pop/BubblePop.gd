@@ -506,7 +506,7 @@ func _finger_pointers(view: Vector2) -> Array:
 	for pid in best:
 		var h: Dictionary = best[pid]
 		var raw := VisionClient.to_screen(Vector2(float(h["tip"][0]), float(h["tip"][1])), view)
-		var tp := _glide("f%d" % pid, raw, VisionClient.hands_received, str(h["side"]))
+		var tp := _glide("f%d" % pid, raw, VisionClient.hands_received, str(h["side"]), VisionClient.hands_ts)
 		out.append({"player": pid, "key": "f%d" % pid, "pos": tp[0],
 			"moving": (not needs_motion) or (tp[1] as Vector2).length() >= min_speed})
 	return out
@@ -545,17 +545,23 @@ func _arm_pointers(view: Vector2) -> Array:
 
 ## Velocity glide between updates → [position now, velocity px/s]. seq: the update counter
 ## the raw point comes from (a new value = a new measurement).
-func _glide(key: String, raw: Vector2, seq: int, side: String) -> Array:
+## capture_ms (camera capture time from the vision service, when known): the speed uses the
+## spacing between captures, not between arrivals, so network/frame timing doesn't jitter it.
+func _glide(key: String, raw: Vector2, seq: int, side: String, capture_ms := -1) -> Array:
 	var now := Time.get_ticks_msec() / 1000.0
 	var tp: Dictionary = _tips.get(key, {})
 	if tp.is_empty() or str(tp.get("side", "")) != side:
-		tp = {"pos": raw, "vel": Vector2.ZERO, "at": now, "seq": seq, "side": side}
+		tp = {"pos": raw, "vel": Vector2.ZERO, "at": now, "seq": seq, "side": side, "cap": capture_ms}
 	elif int(tp["seq"]) != seq:
-		var dt := maxf(0.005, now - float(tp["at"]))
+		var dt := now - float(tp["at"])
+		if capture_ms >= 0 and int(tp.get("cap", -1)) >= 0 and capture_ms > int(tp["cap"]):
+			dt = (capture_ms - int(tp["cap"])) / 1000.0
+		dt = maxf(0.005, dt)
 		tp["vel"] = (tp["vel"] as Vector2).lerp((raw - (tp["pos"] as Vector2)) / dt, 0.5)
 		tp["pos"] = raw
 		tp["at"] = now
 		tp["seq"] = seq
+		tp["cap"] = capture_ms
 	_tips[key] = tp
 	var age := minf(now - float(tp["at"]), PREDICT_MAX_S)
 	return [tp["pos"] + (tp["vel"] as Vector2) * age, tp["vel"]]

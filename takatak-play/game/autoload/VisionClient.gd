@@ -39,6 +39,7 @@ var frames_received := 0
 var poses_received := 0
 var hands: Array = []         # [{player, side, gesture, count, fingers[5], tip[x,y], kp[21][x,y]}]
 var hands_received := 0
+var hands_ts := -1             # camera capture time of `hands` (vision clock, ms): spacing between updates
 var last_hands_ms := -100000
 var last_pose_ms := 0
 
@@ -145,6 +146,7 @@ func _handle(msg: Dictionary) -> void:
 			pose_updated.emit(people)
 		"hands":
 			hands = msg.get("hands", [])
+			hands_ts = int(msg.get("ts", -1))
 			hands_received += 1
 			last_hands_ms = Time.get_ticks_msec()
 			hands_updated.emit(hands)

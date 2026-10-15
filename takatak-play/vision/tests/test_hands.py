@@ -179,3 +179,104 @@ def test_mock_child_steps_sideways():
     assert m.command("left") and m.kp(0.0)[:, 0].mean() > x0 + 100      # camera +x = screen left (mirrored)
     assert m.command("right") and m.kp(0.0)[:, 0].mean() < x0 - 100
     assert m.command("middle") and abs(m.kp(0.0)[:, 0].mean() - x0) < 10
+
+
+def test_warp_and_back_land_on_the_same_frame_point():
+    pytest.importorskip("cv2")
+    frame = np.zeros((1080, 1920, 4), np.uint8)
+    frame[300:304, 1000:1004, :3] = 255                                 # a dot near the hand
+    for wrist, elbow in (((1000, 400), (1000, 600)), ((1000, 400), (850, 520))):   # upright, tilted arm
+        rect = H.pose_rect(wrist, elbow)
+        crop = H.warp_rect(frame, rect, 224)
+        assert crop.shape == (224, 224, 3)
+        ys, xs = np.nonzero(crop[..., 0] > 128)
+        back = H.rect_to_frame(np.array([[xs.mean() / 224, ys.mean() / 224, 0.0]]), rect, 1920, 1080)
+        assert back[0, 0] * 1920 == pytest.approx(1002, abs=3) and back[0, 1] * 1080 == pytest.approx(302, abs=3)
+
+
+def test_pose_rect_points_up_the_forearm():
+    cx, cy, side, ux, uy = H.pose_rect((500, 400), (500, 600))
+    assert (ux, uy) == pytest.approx((0, -1)) and cy < 400 and side == pytest.approx(200 * H.HAND_PER_FOREARM * 2.4)
+    rect = H.pose_rect((10, 10), (10, 10))                               # zero forearm: no crash
+    assert rect[2] == 64
+
+
+@pytest.mark.parametrize("angle", [0.0, 0.7, -1.2, math.pi])
+def test_landmark_rect_follows_the_hand(angle):
+    lm = synthetic_hand(angle=angle) * 100 + [960, 540]                  # hand ~190 px tall
+    cx, cy, side, ux, uy = H.landmark_rect(lm)
+    up = np.array([math.sin(angle), -math.cos(angle)])                   # synthetic fingers point up, turned
+    assert np.dot([ux, uy], up) > 0.95
+    assert np.all(np.hypot(lm[:, 0] - cx, lm[:, 1] - cy) < side * 0.75)  # whole hand inside the box
+
+
+class StubLiteRT:
+    """Stands in for LiteRTHands: a pointing hand, upright in every box it is given."""
+    input_size = 224
+
+    def __init__(self):
+        self.calls = []
+
+    def run(self, jobs, t_ms):
+        out = {}
+        for key, crop in jobs:
+            self.calls.append((key, crop.shape))
+            lm = synthetic_hand(("index",))
+            lm = (lm - lm.min(0)) / (lm.max(0) - lm.min(0)) * 0.5 + 0.25   # hand fills the middle half
+            ext = H.fingers_extended(lm)
+            out[key] = {"lm_crop": np.c_[lm, np.zeros(21)], "fingers": ext, "count": sum(ext),
+                        "gesture": H.gesture(ext), "score": 0.9}
+        return out
+
+    def forget(self, keys):
+        pass
+
+    def close(self):
+        pass
+
+
+def test_hand_thread_tracks_from_its_own_landmarks_and_stamps_capture_time():
+    pytest.importorskip("cv2")
+    from takatak_vision.config import load_config
+    from takatak_vision.slots import LatestSlot
+    th = H.HandThread(load_config(), LatestSlot(), LatestSlot(), mirror=True)
+    th._backend = StubLiteRT()
+    frame = np.zeros((1080, 1920, 4), np.uint8)
+    p = person(0.3, 0.7)
+    msg = th.process(frame, [p], 1, 1000.0)
+    assert msg["ts"] == 1000 and len(msg["hands"]) == 1
+    first = th._rects[(5, "l")]
+    assert th._backend.calls[-1][1] == (224, 224, 3)
+    th.process(frame, [p], 2, 1033.0)
+    assert th._rects[(5, "l")] != H.pose_rect((0.6 * 1920, 0.3 * 1080), (0.6 * 1920, 0.5 * 1080))
+    assert first is not None
+    p_far = person(0.3, 0.7, x_l=0.9)                                    # pose wrist jumped away: re-find
+    th.process(frame, [p_far], 3, 1066.0)
+    cx = th._rects[(5, "l")][0]
+    assert abs(cx - 0.1 * 1920) < abs(cx - 0.6 * 1920)
+    th.process(frame, [person(0.7, 0.7)], 4, 1100.0)                     # arm down: box forgotten
+    assert (5, "l") not in th._rects
+
+
+@pytest.mark.skipif(not os.path.exists(vision_path(H.MODEL)), reason="hand model not downloaded")
+def test_litert_backend_runs_the_landmark_model():
+    pytest.importorskip("cv2")
+    try:
+        be = H.LiteRTHands(workers=2, threads=1)
+    except H.HandsError as e:
+        pytest.skip(str(e))
+    try:
+        assert be.input_size == 224
+        blank = np.zeros((224, 224, 3), np.uint8)
+        assert be.run([((1, "l"), blank)], 0) == {(1, "l"): None}                       # no hand
+        assert be.run([((1, "l"), blank), ((1, "r"), blank)], 0) == {(1, "l"): None, (1, "r"): None}
+        be.min_conf = 0.0                                                                 # force a result
+        res = be.track_crop(blank)
+        assert res["lm_crop"].shape == (21, 3) and res["gesture"] in ("point", "open", "fist", "other")
+    finally:
+        be.close()
+
+
+def test_litert_reports_a_missing_model(tmp_path):
+    with pytest.raises(H.HandsError, match="hand model missing"):
+        H.LiteRTHands(model=str(tmp_path / "nope.task"))

@@ -143,12 +143,17 @@ gpio_button:
 hands:
   enabled: true
   model: models/hand_landmarker.task
+  backend: litert                 # litert: landmark model only (from the .task), no palm detector: the
+                                  #   box comes from the pose / last frame's hand. ~3× faster on the Pi.
+                                  # mediapipe: full Hand Landmarker (palm detector + landmarks), slower
+  workers: 2                      # litert: hands run in parallel on this many interpreters
+  threads: 2                      # litert: CPU threads per interpreter (workers × threads ≤ 4 on a Pi 5)
   only_raised: true               # track only raised hands (wrist above elbow): pointing is up
-  box_scale: 2.4                  # hand box side ÷ estimated hand length
-  min_conf: 0.4
-  process: false                  # true = hand model in its own process. Measured: MediaPipe releases
-                                  # the Python lock, so in-process doesn't slow camera/pose; the process
-                                  # only adds memory. Try true if the Pi's pose fps drops with hands on.
+  box_scale: 2.4                  # hand box side ÷ estimated hand length (finding a hand from the pose)
+  min_conf: 0.4                   # hand presence below this → no hand (box goes back to the pose)
+  process: false                  # mediapipe only: true = hand model in its own process. Measured: MediaPipe
+                                  # releases the Python lock, so in-process doesn't slow camera/pose; the
+                                  # process only adds memory.
   other_every: 3                  # while a hand points, other hands are tracked every Nth frame
   one_euro:                       # finger smoothing: quicker than the body points
     min_cutoff: 2.0
