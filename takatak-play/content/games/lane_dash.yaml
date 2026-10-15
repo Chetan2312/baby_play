@@ -46,7 +46,7 @@ levels:
   # Non-stop: no song end, no score limit; it keeps getting faster until the lives run out.
   # Every bpm ramp also raises square_share / pair_share by *_ramp (up to *_max); from
   # dense_after_beats on, something drops on every beat. Hearts: every life_every_points
-  # points a heart drops in one lane, catch it = +1 life; max_lives 0 = no limit.
+  # points a heart drops in one lane, catch it = +1 life, up to max_lives (0 = no limit).
   endless:
     endless: true
     bpm: 80
@@ -64,4 +64,4 @@ levels:
     pair_share_max: 0.45
     lives: 3
     life_every_points: 15
-    max_lives: 0
+    max_lives: 5                # never more than 5 lives at once (a heart at 5 lives gives nothing)

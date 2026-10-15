@@ -392,6 +392,9 @@ func _check_life_drop() -> void:
 
 
 func _extra_life(pos: Vector2) -> void:
+	var cap := int(d("max_lives", 0))
+	if cap > 0 and lives >= cap:
+		return                       # already full (a heart that dropped before the cap was reached)
 	lives += 1
 	lives_won += 1
 	AudioDirector.sfx("success")

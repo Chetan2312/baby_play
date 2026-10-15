@@ -238,6 +238,15 @@ func lane_dash_endless_checks(body: Callable) -> void:
 	ld.spawn_object("heart", 1, ld.beat_pos + 0.2)
 	await wait(0.5)
 	check(ld.lives == 4 and ld.st == ld.St.PLAY, "missed heart → nothing happens, play on")
+	ld.lives = 5
+	ld.spawn_object("heart", 0, ld.beat_pos + 0.2)
+	await wait(0.5)
+	var score0: int = ld.score
+	ld.score = ld._next_life_at - 1
+	ld.spawn_object("circle", 0, ld.beat_pos + 0.2)
+	await wait(0.5)
+	check(ld.lives == 5 and ld.lives_won == 1 and not ld._heart_pending, "lives never go above 5, no heart drops at 5")
+	ld.score = score0
 	ld.lives = 1
 	ld.spawn_object("square", 0, ld.beat_pos + 0.2)
 	await wait(0.5)
