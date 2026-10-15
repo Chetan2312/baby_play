@@ -10,7 +10,7 @@ const DEFAULTS := {
 	"primary_language": "mr",
 	"difficulty": "toddler",
 	"landing": "picker",
-	"camera_rotation": "normal",
+	"camera_rotation": "inverted",
 	"session": "standard_v1",
 	"session_minutes": 18,
 	"slots": 3,

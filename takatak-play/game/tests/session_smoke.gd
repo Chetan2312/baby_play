@@ -329,11 +329,11 @@ func _run() -> void:
 	await press("back", 0.1)
 	await press("next", 0.05)
 	await press("select", 0.1)   # item 13: camera rotation
-	check(Centre.value("camera_rotation") == "right" and VisionClient._sticky.get("set_rotation", {}).get("rotation") == "right",
+	check(Centre.value("camera_rotation") == "left" and VisionClient._sticky.get("set_rotation", {}).get("rotation") == "left",
 		"camera rotation cycles and is sent to the vision service")
 	for i in 3:
 		await press("select", 0.05)
-	check(Centre.value("camera_rotation") == "normal", "camera rotation back to normal")
+	check(Centre.value("camera_rotation") == "inverted", "camera rotation back to inverted")
 	var fs0: Vector2 = VisionClient.frame_size
 	VisionClient.frame_size = Vector2(540, 960)   # portrait frame (turned right) on a landscape screen
 	var r: Rect2 = VisionClient.cover_rect(Vector2(1920, 1080))
