@@ -42,3 +42,11 @@ def test_transport_size_follows_frame_shape():
 
 def test_protocol_and_camera_agree_on_names():
     assert set(P.ROTATIONS) == set(ROTATIONS)
+
+
+def test_inverted_is_a_sensor_flip_others_turn_in_software():
+    from takatak_vision.camera import split_rotation
+    assert split_rotation("inverted") == (True, "normal")
+    assert split_rotation("inverted", hw_flip=False) == (False, "inverted")
+    for r in ("normal", "right", "left"):
+        assert split_rotation(r) == (False, r)

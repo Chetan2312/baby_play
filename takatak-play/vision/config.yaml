@@ -23,6 +23,7 @@ camera_opts:
   transport_size: [960, 540]      # JPEG for the game (main is downscaled to this)
   rotation: inverted              # normal | right | inverted | left: turn the picture when the camera is
                                   # mounted sideways / upside down (the game's supervisor menu overrides this)
+  hw_flip: true                   # inverted = sensor h+v flip (free); false = turn every frame in software
   framerate: 30                   # try 50 for a snappier pointer (camera latency ↓, pose rate ↑) if the Pi keeps up: check ./run.sh debug fps
   auto_brightness_threshold: 60   # camera: auto → mean luma (0-255) below this picks noir
   auto_probe_frames: 15
@@ -146,8 +147,11 @@ hands:
   backend: litert                 # litert: landmark model only (from the .task), no palm detector: the
                                   #   box comes from the pose / last frame's hand. ~3× faster on the Pi.
                                   # mediapipe: full Hand Landmarker (palm detector + landmarks), slower
+  landmarks: lite                 # litert: lite (~2× faster, from the mediapipe package) | full (the .task's)
   workers: 2                      # litert: hands run in parallel on this many interpreters
-  threads: 2                      # litert: CPU threads per interpreter (workers × threads ≤ 4 on a Pi 5)
+  threads: 1                      # litert: CPU threads per interpreter. Keep workers × threads ≤ 2 on a
+                                  # Pi 5: camera, pose, JPEG and the game need the other cores
+                                  # (measured: 2 × 2 dropped the camera from 30 to ~19 fps)
   only_raised: true               # track only raised hands (wrist above elbow): pointing is up
   box_scale: 2.4                  # hand box side ÷ estimated hand length (finding a hand from the pose)
   min_conf: 0.4                   # hand presence below this → no hand (box goes back to the pose)

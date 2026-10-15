@@ -43,6 +43,7 @@ CONNECTIONS = ((0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8), (
 TIPS = (4, 8, 12, 16, 20)
 HAND_PER_FOREARM = 0.6
 LANDMARK_TFLITE = "hand_landmarks_detector.tflite"   # inside the .task bundle
+LITE_TFLITE = "hand_landmark_lite.tflite"           # same inputs/outputs, ~2× faster, a bit less exact
 RECT_POINTS = (0, 1, 2, 3, 5, 6, 9, 10, 13, 14, 17, 18)   # palm + finger bases: steady box size
 
 
@@ -286,13 +287,29 @@ def _landmark_model_bytes(model_path):
         raise HandsError(f"{os.path.basename(model_path)}: no {LANDMARK_TFLITE} inside ({e})") from e
 
 
+def lite_model_path():
+    """hand_landmark_lite.tflite: vision/models/ if copied there, else the one inside the
+    installed mediapipe package (found without importing mediapipe)."""
+    local = vision_path(os.path.join("models", LITE_TFLITE))
+    if os.path.exists(local):
+        return local
+    import importlib.util
+    spec = importlib.util.find_spec("mediapipe")
+    for d in (spec.submodule_search_locations or []) if spec else []:
+        p = os.path.join(d, "modules", "hand_landmark", LITE_TFLITE)
+        if os.path.exists(p):
+            return p
+    raise HandsError(f"{LITE_TFLITE} not found: install mediapipe (requirements-hands.txt) "
+                     f"or copy it to vision/models/, or set hands.landmarks: full")
+
+
 class LiteRTHands:
     """Landmark model only (no palm detector) on LiteRT, `workers` interpreters in parallel
     (LiteRT releases the Python lock while it runs). Jobs are hand boxes already cut to
-    `input_size`, hand pointing up."""
+    `input_size`, hand pointing up. landmarks: full (from the .task) | lite (~2× faster)."""
 
-    def __init__(self, model=MODEL, min_conf=0.4, workers=2, threads=2):
-        model_path = vision_path(model)
+    def __init__(self, model=MODEL, min_conf=0.4, workers=2, threads=1, landmarks="full"):
+        model_path = lite_model_path() if landmarks == "lite" else vision_path(model)
         if not os.path.exists(model_path):
             raise HandsError(f"hand model missing: {model} (download: curl -L -o vision/{model} {MODEL_URL})")
         Interpreter = _load_interpreter_class()
@@ -451,7 +468,8 @@ class HandThread(threading.Thread):
         if self._backend is None:
             model, conf = self.hcfg.get("model", MODEL), float(self.hcfg.get("min_conf", 0.4))
             if self.hcfg.get("backend", "litert") == "litert":
-                self._backend = LiteRTHands(model, conf, self.hcfg.get("workers", 2), self.hcfg.get("threads", 2))
+                self._backend = LiteRTHands(model, conf, self.hcfg.get("workers", 2), self.hcfg.get("threads", 1),
+                                            self.hcfg.get("landmarks", "full"))
             elif self.hcfg.get("process", False):
                 self._backend = HandWorker(model, conf)
             else:

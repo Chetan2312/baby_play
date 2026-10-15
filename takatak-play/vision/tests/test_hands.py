@@ -280,3 +280,32 @@ def test_litert_backend_runs_the_landmark_model():
 def test_litert_reports_a_missing_model(tmp_path):
     with pytest.raises(H.HandsError, match="hand model missing"):
         H.LiteRTHands(model=str(tmp_path / "nope.task"))
+
+
+@pytest.mark.skipif(not os.path.exists(vision_path(H.MODEL)), reason="hand model not downloaded")
+def test_lite_model_is_found_in_the_mediapipe_package(tmp_path, monkeypatch):
+    import zipfile
+    pkg = tmp_path / "mediapipe" / "modules" / "hand_landmark"
+    pkg.mkdir(parents=True)
+    (tmp_path / "mediapipe" / "__init__.py").write_text("")
+    # stand-in with the same inputs/outputs: the full landmark model from the .task
+    (pkg / H.LITE_TFLITE).write_bytes(zipfile.ZipFile(vision_path(H.MODEL)).read(H.LANDMARK_TFLITE))
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.delitem(__import__("sys").modules, "mediapipe", raising=False)
+    if os.path.exists(vision_path(os.path.join("models", H.LITE_TFLITE))):
+        pytest.skip("a local lite model takes precedence")
+    assert H.lite_model_path() == str(pkg / H.LITE_TFLITE)
+    try:
+        be = H.LiteRTHands(landmarks="lite")
+    except H.HandsError as e:
+        pytest.skip(str(e))
+    assert be.run([((1, "l"), np.zeros((224, 224, 3), np.uint8))], 0) == {(1, "l"): None}
+    be.close()
+
+
+def test_lite_model_missing_is_a_friendly_error(monkeypatch):
+    import importlib.util
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+    monkeypatch.setattr(H, "vision_path", lambda p: "/nonexistent/" + p)
+    with pytest.raises(H.HandsError, match="hand_landmark_lite.tflite not found"):
+        H.lite_model_path()

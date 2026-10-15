@@ -34,6 +34,14 @@ def rotate_frame(img, rotation):
     return img if k == 0 else np.ascontiguousarray(np.rot90(img, k))
 
 
+def split_rotation(rotation, hw_flip=True):
+    """→ (sensor flip, software rotation). inverted = horizontal + vertical flip, which the
+    sensor does for free; right / left need a software turn (the ISP can't transpose)."""
+    if hw_flip and rotation == "inverted":
+        return True, "normal"
+    return False, rotation
+
+
 def rotated_size(size, rotation):
     """(w, h) after rotation: right / left swap the sides."""
     w, h = size
@@ -100,6 +108,8 @@ class CameraThread(threading.Thread):
         self.active = None
         self._want = cfg["camera"]
         self.rotation = self.copts.get("rotation", "normal")
+        self.hw_flip = bool(self.copts.get("hw_flip", True))
+        self._flipped = False            # the open camera flips on the sensor (rotation inverted)
         self._frame_id = 0
         self._quit = threading.Event()
         self._switch = threading.Event()
@@ -108,6 +118,8 @@ class CameraThread(threading.Thread):
     def set_rotation(self, rotation):
         rotated_size((1, 1), rotation)   # KeyError on an unknown name
         self.rotation = rotation         # read once per frame by the capture loop
+        if split_rotation(rotation, self.hw_flip)[0] != self._flipped and self.active:
+            self._switch.set()           # sensor flip changes: reopen the same camera
 
     def request_switch(self, which=None):
         if which is None:
@@ -120,15 +132,19 @@ class CameraThread(threading.Thread):
         self._switch.set()
 
     # thread
-    def _open(self, which):
+    def _open(self, which, flip=False):
         from picamera2 import Picamera2
         num, kind = find_camera_num(which, self.cfg)
         cam = Picamera2(num)
         controls = {"FrameRate": float(self.copts["framerate"]), **(self.copts.get("controls") or {})}
+        extra = {}
+        if flip:
+            from libcamera import Transform
+            extra["transform"] = Transform(hflip=1, vflip=1)
         config = cam.create_preview_configuration(
             main={"size": self.main_size, "format": "XBGR8888"},
             lores={"size": self.lores_size, "format": "RGB888"},
-            controls=controls, buffer_count=4)
+            controls=controls, buffer_count=4, **extra)
         cam.configure(config)
         cam.start()
         return cam, kind
@@ -177,18 +193,26 @@ class CameraThread(threading.Thread):
                 which = self._auto_pick()
             self._switch.clear()
             self.status = f"starting {which} camera…"
+            flip = split_rotation(self.rotation, self.hw_flip)[0]
             try:
-                cam, which = self._open(which)
+                cam, which = self._open(which, flip)
             except Exception as e:  # noqa: BLE001 - any libcamera failure → on-screen message
+                if flip:                 # sensor can't flip: fall back to turning in software
+                    print(f"[camera] sensor flip failed ({e}); rotating in software")
+                    self.hw_flip = False
+                    continue
                 self.error = f"Camera '{which}': {e}"
                 self.active = which
                 self._switch.wait(2.0)
                 continue
+            self._flipped = flip
             self.error, self.active, self.status = None, which, ""
             try:
                 while not self._switch.is_set():
                     main, lores = self._grab(cam)
-                    rot = self.rotation
+                    flip_now, rot = split_rotation(self.rotation, self.hw_flip)
+                    if flip_now != self._flipped:
+                        break            # set_rotation asked for a reopen; skip this frame
                     if rot != "normal":
                         main, lores = rotate_frame(main, rot), rotate_frame(lores, rot)
                     if not main.flags.c_contiguous:
