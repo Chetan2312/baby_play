@@ -27,7 +27,7 @@ GESTURE_NAMES = tuple(CHECKS) + ("neutral",)
 MOTION_NAMES = ("hop", "flap", "stomp", "run_on_spot", "freeze", "wave", "crouch",
                 "crawl_low", "jump")
 PLAYER_MODES = ("single", "duo")
-CAMERAS = ("wide", "noir", "imx500", "auto")
+CAMERAS = ("wide", "noir", "imx500", "usb", "auto")
 ROTATIONS = ("normal", "right", "inverted", "left")   # camera picture turn (camera.py)
 DIFFICULTIES = ("toddler", "kid")
 BUTTON_STATES = ("down", "up")

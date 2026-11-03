@@ -35,7 +35,7 @@ PALM = (0, 1, 5, 9, 13, 17)   # wrist, thumb base, knuckles: the palm outline
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--camera", choices=["wide", "noir", "auto"])
+    ap.add_argument("--camera", choices=["wide", "noir", "usb", "auto"])
     ap.add_argument("--windowed", action="store_true")
     ap.add_argument("--video", help="DEV ONLY: recorded clip instead of camera")
     ap.add_argument("--mock", action="store_true", help="synthetic child, no hardware")

@@ -3,11 +3,14 @@
 A "source" is what server.py talks to. tools/mock_server.py provides another
 one with the same attributes, so the server code is identical in both.
 """
+import glob
+import os
 import time
 
 from .analysis import Analyzer
 from .button import GpioButton
 from .camera import CameraThread, VideoThread, lores_size_for, rotated_size
+from .camera_v4l2 import V4l2CameraThread
 from .config import path
 from .encoder import FrameEncoder
 from .hands import HandThread
@@ -15,9 +18,29 @@ from .perf import PerfLog
 from .pose import InferenceThread
 
 
+CAMERAS = {"picamera2": CameraThread, "v4l2": V4l2CameraThread}
+CPU_ZONES = ("x86_pkg_temp",)   # x86: thermal_zone0 is usually acpitz (the board, not the CPU)
+_temp_path = None
+
+
+def cpu_temp_path(sys_thermal="/sys/class/thermal"):
+    """The CPU's thermal zone: x86_pkg_temp on Intel, else thermal_zone0 (cpu-thermal on the Pi)."""
+    for zone in sorted(glob.glob(os.path.join(sys_thermal, "thermal_zone*"))):
+        try:
+            with open(os.path.join(zone, "type")) as f:
+                if f.read().strip() in CPU_ZONES:
+                    return os.path.join(zone, "temp")
+        except OSError:
+            continue
+    return os.path.join(sys_thermal, "thermal_zone0", "temp")
+
+
 def read_temp_c():
+    global _temp_path
+    if _temp_path is None:
+        _temp_path = cpu_temp_path()
     try:
-        with open("/sys/class/thermal/thermal_zone0/temp") as f:
+        with open(_temp_path) as f:
             return int(f.read().strip()) / 1000.0
     except (OSError, ValueError):
         return None
@@ -40,7 +63,8 @@ class HardwareSource:
         if video:
             self.cam = VideoThread(cfg, video, self.perf.rates["cam"])
         else:
-            self.cam = CameraThread(cfg, self.perf.rates["cam"])
+            backend = cfg.get("profile", {}).get("camera_backend", "picamera2")
+            self.cam = CAMERAS[backend](cfg, self.perf.rates["cam"])
         self.inf = InferenceThread(cfg, self.cam.slot, self.analyzer, self.perf)
         self.enc = FrameEncoder(self.cam.slot, scfg["jpeg_quality"], scfg["frame_fps"],
                                 self.mirror, self.perf.rates["frames"],
@@ -74,6 +98,8 @@ class HardwareSource:
         for src in (self.cam, self.inf, self.button):
             if src.error:
                 out.append(src.error)
+        if self.inf.warning:
+            out.append(self.inf.warning)
         if self.hands and self.hands.error and self.hands.wanted.is_set():
             out.append(self.hands.error)
         return out

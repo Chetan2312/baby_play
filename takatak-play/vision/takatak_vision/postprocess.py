@@ -1,4 +1,4 @@
-"""YOLOv8-pose decoding for the raw Hailo outputs (pure numpy, unit-tested).
+"""YOLOv8-pose decoding (pure numpy, unit-tested): raw Hailo outputs and the Ultralytics export.
 
 Same maths as picamera2 examples/hailo/pose_utils.py (DFL box decode,
 keypoints = (2*raw + grid) * stride), but output tensors are matched by SHAPE
@@ -106,5 +106,27 @@ def decode_yolov8_pose(raw, input_hw, score_thr=0.5, iou_thr=0.7, max_det=10,
     if not all_b:
         return np.zeros((0, 4)), np.zeros((0,)), np.zeros((0, num_kpts, 3))
     boxes, scores, kpts = np.concatenate(all_b), np.concatenate(all_s), np.concatenate(all_k)
+    keep = nms(boxes, scores, iou_thr)[:max_det]
+    return boxes[keep], scores[keep], kpts[keep]
+
+
+def decode_ultralytics_pose(out, score_thr=0.5, iou_thr=0.7, max_det=10, num_kpts=NUM_KPTS):
+    """Ultralytics export (OpenVINO / ONNX): one tensor (1, 5 + 3*K, N) or (5 + 3*K, N), rows
+    cx, cy, w, h (input pixels), person score, then K × (x, y, vis), sigmoids already applied.
+    → same (boxes xyxy, scores, kpts) in model-input pixels as decode_yolov8_pose."""
+    a = np.asarray(out)
+    while a.ndim > 2:
+        a = a[0]
+    if a.ndim != 2 or a.shape[0] != 5 + num_kpts * 3:
+        raise ValueError(f"unexpected output shape {np.shape(out)}")
+    scores = a[4]
+    idx = np.nonzero(scores > score_thr)[0]
+    if idx.size == 0:
+        return np.zeros((0, 4)), np.zeros((0,)), np.zeros((0, num_kpts, 3))
+    d = a[:, idx].T.astype(np.float32)
+    cx, cy, w, h = d[:, 0], d[:, 1], d[:, 2] / 2, d[:, 3] / 2
+    boxes = np.stack([cx - w, cy - h, cx + w, cy + h], axis=1)
+    kpts = d[:, 5:].reshape(-1, num_kpts, 3)
+    scores = d[:, 4]
     keep = nms(boxes, scores, iou_thr)[:max_det]
     return boxes[keep], scores[keep], kpts[keep]

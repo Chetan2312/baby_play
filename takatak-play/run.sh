@@ -13,7 +13,7 @@
 #   ./run.sh test             pytest (vision + content tools)
 #   ./run.sh smoke            headless Godot session smoke test (no camera needed)
 #   ./run.sh field-build      package a field build into dist/takatak-field
-#   ./run.sh check            cameras + Hailo hardware check
+#   ./run.sh check            cameras + Hailo hardware check (TAKATAK_PROFILE=n150: USB camera + OpenVINO)
 #
 # Build: vision/game/play run as TAKATAK_BUILD=field (no recording, no tester keys);
 # mock/play-mock/debug/record/clip default to dev. Override: TAKATAK_BUILD=dev ./run.sh play
@@ -140,6 +140,12 @@ case "$cmd" in
     exec "$PY" tools/content_lint.py ;;
   test)      exec "$PY" -m pytest -q vision/tests tools/tests "$@" ;;
   check)
+    if [[ "${TAKATAK_PROFILE:-}" == n150 ]]; then
+      clinfo -l || true
+      v4l2-ctl --list-devices || true
+      for d in /dev/v4l/by-id/*-video-index0; do [[ -e "$d" ]] && v4l2-ctl -d "$d" --list-formats-ext | grep -A2 MJPG | head -6; done
+      exec "$PY" -c "import openvino as ov; c = ov.Core(); [print(d, c.get_property(d, 'FULL_DEVICE_NAME')) for d in c.available_devices]"
+    fi
     hailortcli fw-control identify || true
     rpicam-hello --list-cameras || true
     exec "$PY" -c "from picamera2 import Picamera2; [print(c) for c in Picamera2.global_camera_info()]" ;;

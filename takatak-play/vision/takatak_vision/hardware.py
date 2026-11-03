@@ -10,7 +10,7 @@ import subprocess
 
 ACCELERATORS = {"HAILO8L": "hailo8l", "HAILO8": "hailo8", "HAILO10H": "hailo10h", "HAILO10": "hailo10h"}
 ACCEL_NAMES = {"hailo8": "Hailo-8 (AI HAT+ 26 TOPS)", "hailo8l": "Hailo-8L (AI HAT+ 13 TOPS)",
-               "hailo10h": "Hailo-10H (AI HAT+ 2)"}
+               "hailo10h": "Hailo-10H (AI HAT+ 2)", "openvino": "OpenVINO (Intel GPU)"}
 
 
 def parse_identify(text):
@@ -38,6 +38,18 @@ def detect_accelerator(timeout=4.0):
         return None, True
 
 
+def detect_openvino(device="GPU"):
+    """→ (arch, present, device name). present = OpenVINO lists the profile's device."""
+    try:
+        import openvino as ov
+        core = ov.Core()
+        if device not in core.available_devices:
+            return "openvino", False, None
+        return "openvino", True, str(core.get_property(device, "FULL_DEVICE_NAME"))
+    except Exception:  # noqa: BLE001 - not installed / driver missing
+        return None, False, None
+
+
 def camera_kind(model):
     """Sensor model name → our camera label."""
     m = str(model).lower()
@@ -48,7 +60,24 @@ def camera_kind(model):
     return "wide"
 
 
-def detect_cameras():
+def parse_v4l2_nodes(sys_v4l="/sys/class/video4linux"):
+    """Capture cameras from sysfs: one name per device (index 0; index 1 is the metadata node)."""
+    names = []
+    for node in sorted(glob.glob(os.path.join(sys_v4l, "video*"))):
+        try:
+            with open(os.path.join(node, "index")) as f:
+                if f.read().strip() != "0":
+                    continue
+            with open(os.path.join(node, "name")) as f:
+                names.append(f.read().strip())
+        except OSError:
+            continue
+    return names
+
+
+def detect_cameras(backend="picamera2"):
+    if backend == "v4l2":
+        return parse_v4l2_nodes()
     try:
         from picamera2 import Picamera2
         infos = Picamera2.global_camera_info()
@@ -99,6 +128,13 @@ def profile_errors(profile, arch, present, cameras):
     """Friendly messages for a profile/hardware mismatch (shown on the TV status line)."""
     errs = []
     want = profile["accelerator"]
+    if want == "openvino":
+        if not present:
+            errs.append(f"Intel GPU not found by OpenVINO (expected {profile.get('device', 'GPU')}): "
+                        "pose runs slowly on the CPU. Check intel-opencl-icd: clinfo -l")
+        if not cameras:
+            errs.append("No USB camera found. Check the cable: v4l2-ctl --list-devices")
+        return errs
     if not present:
         errs.append(f"AI accelerator not found (expected {ACCEL_NAMES.get(want, want)}). "
                     "Check the AI HAT ribbon cable.")
@@ -115,14 +151,19 @@ def profile_errors(profile, arch, present, cameras):
 def probe(cfg):
     """Full boot probe → hello.hardware dict (+ 'errors' list)."""
     prof = cfg["profile"]
-    arch, present = detect_accelerator()
-    cameras = detect_cameras()
+    device_name = None
+    if prof["accelerator"] == "openvino":
+        arch, present, device_name = detect_openvino(prof.get("device", "GPU"))
+    else:
+        arch, present = detect_accelerator()
+    cameras = detect_cameras(prof.get("camera_backend", "picamera2"))
     cards, mic = detect_audio()
     info = {
         "profile": prof["name"],
         "accelerator": arch,
         "accelerator_expected": prof["accelerator"],
         "accelerator_present": present,
+        "accelerator_device": device_name,
         "model": cfg["model"],
         "cameras": cameras,
         "audio": cards,

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from takatak_vision.postprocess import decode_yolov8_pose, split_outputs
+from takatak_vision.postprocess import decode_ultralytics_pose, decode_yolov8_pose, split_outputs
 
 IN = (640, 640)
 BINS = 16
@@ -74,3 +74,42 @@ def test_split_outputs_rejects_unknown():
         split_outputs({"a": np.zeros((80, 80, 7))}, IN)
     with pytest.raises(ValueError):
         split_outputs({"a": np.zeros((80, 80, 1))}, IN)
+
+
+def make_ultralytics(people, n=5040):
+    """people: list of (anchor, (cx, cy, w, h), score, kxy (17,2)) → (1, 56, n) like the IR output."""
+    out = np.zeros((1, 56, n), np.float32)
+    for anchor, (cx, cy, w, h), score, kxy in people:
+        out[0, :4, anchor] = cx, cy, w, h
+        out[0, 4, anchor] = score
+        k = np.concatenate([kxy, np.full((17, 1), 0.9)], axis=1)
+        out[0, 5:, anchor] = k.reshape(-1)
+    return out
+
+
+def test_decode_ultralytics_single_person():
+    out = make_ultralytics([(100, (330, 170, 80, 120), 0.9, KXY)])
+    boxes, scores, kpts = decode_ultralytics_pose(out, 0.5)
+    assert boxes.shape == (1, 4) and kpts.shape == (1, 17, 3)
+    np.testing.assert_allclose(boxes[0], [290, 110, 370, 230])
+    np.testing.assert_allclose(kpts[0, :, :2], KXY, atol=1e-4)
+    np.testing.assert_allclose(kpts[0, :, 2], 0.9, atol=1e-6)
+    assert scores[0] == pytest.approx(0.9)
+
+
+def test_decode_ultralytics_nms_and_threshold():
+    out = make_ultralytics([
+        (10, (330, 170, 80, 120), 0.9, KXY),
+        (11, (332, 171, 80, 120), 0.8, KXY),        # same person, other anchor → suppressed
+        (500, (100, 170, 60, 100), 0.7, KXY - 200),  # second person
+        (900, (500, 170, 60, 100), 0.3, KXY),        # below threshold
+    ])
+    boxes, scores, _ = decode_ultralytics_pose(out, 0.5, 0.7)
+    np.testing.assert_allclose(scores, [0.9, 0.7])
+    assert decode_ultralytics_pose(out, 0.95)[0].shape == (0, 4)
+    assert len(decode_ultralytics_pose(out, 0.5, 0.7, max_det=1)[0]) == 1
+
+
+def test_decode_ultralytics_rejects_other_layouts():
+    with pytest.raises(ValueError):
+        decode_ultralytics_pose(np.zeros((1, 84, 100)))

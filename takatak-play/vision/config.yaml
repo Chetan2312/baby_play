@@ -3,7 +3,7 @@
 # Hardware profile. Models (HEF) are compiled per accelerator and are NOT
 # interchangeable: each profile has its own models_dir. See docs/model_matrix.md.
 hardware:
-  profile: devrig                 # devrig | kit
+  profile: devrig                 # devrig | kit | n150 (TAKATAK_PROFILE env or --profile override this)
 profiles:
   devrig:                         # Pi 5 8 GB + AI HAT+ 26 TOPS + CM3 Wide (+ CM3 NoIR)
     accelerator: hailo8
@@ -15,8 +15,24 @@ profiles:
     models_dir: models/hailo10h
     cameras: [imx500]
     default_camera: imx500
+  n150:                           # Intel N150 mini PC (Ubuntu 24.04): USB UVC webcam + OpenVINO on the iGPU
+    accelerator: openvino
+    device: GPU                   # GPU | CPU (GPU falls back to CPU with a warning when it can't load)
+    models_dir: models/openvino
+    model: yolov8n-pose_384x640_fp16  # IR folder (model.xml + model.bin), made by tools/export_pose_openvino.py
+    camera_backend: v4l2
+    cameras: [usb]
+    default_camera: usb
+    overrides:                    # merged over the settings below for this profile only
+      camera_opts:
+        rotation: normal
+        hw_flip: false            # UVC cameras don't flip on the sensor
+      hands:
+        workers: 1                # 4 cores, no Hyper-Threading: camera decode + JPEG + game need the rest
+      thermal:
+        throttle_c: 90            # N150 Tjmax 105 °C; lower for a fanless unit after the soak test
 
-camera: default                   # default (profile's) | wide | noir | imx500 | auto (game: set_camera)
+camera: default                   # default (profile's) | wide | noir | imx500 | usb | auto (game: set_camera)
 camera_index: { wide: 0, noir: 1, imx500: 0 }  # fallback if sensor model names can't be matched
 camera_opts:
   main_size: [1920, 1080]         # capture: hand tracking cuts the hands from this
@@ -28,6 +44,17 @@ camera_opts:
   auto_brightness_threshold: 60   # camera: auto → mean luma (0-255) below this picks noir
   auto_probe_frames: 15
   controls: {}                    # extra libcamera controls, e.g. { AeMeteringMode: 0 }
+  v4l2:                           # camera_backend v4l2 (USB webcam, n150 profile)
+    device: auto                  # auto = first /dev/v4l/by-id/*-video-index0, or a path
+    controls:                     # set with v4l2-ctl before opening (names: v4l2-ctl -d <dev> --list-ctrls)
+      exposure_dynamic_framerate: 1   # Arducam 16MP: 0 caps the exposure and the picture goes almost black
+                                      # (mean luma 9 vs 100 in a dim room); fps was the same (26) either way
+      backlight_compensation: 2       # people in front of a bright window stop going dark
+      brightness: 15                  # picked live on the N150 room (2026-11-02): defaults looked dull and dark
+      gamma: 150
+      saturation: 80
+      contrast: 32
+      gain: 0                         # gain lifts the picture too but washes out the background
 
 display:
   mirror: true                    # frames AND coordinates are sent pre-mirrored
@@ -42,6 +69,7 @@ inference:
   nms_iou: 0.7
   max_people: 6
   pad_value: 114
+  cache_dir: ~/.cache/takatak/openvino  # OpenVINO: compiled GPU kernels (first start ~10 s, then fast)
 
 smoothing:
   # one_euro: smooth when still, almost no lag when moving fast (pointers, popping).

@@ -4,9 +4,10 @@ extends Node2D
 ## picture; full ring (DWELL_S) starts that game. Moving away drains the ring, so nobody
 ## picks by accident.
 ##
-## The pose model has no finger points, so there's no fist/grab gesture: dwell is the
-## select. Only a RAISED hand counts (wrist above its elbow): a child standing with arms
-## hanging in front of a card doesn't pick it. Single button / remote: next = move the highlight, select or long = start the
+## The cursor is the index fingertip (21-point hand tracking, subscribed while the picker
+## shows); without hand tracking (not installed, no model) it falls back to the pose wrist.
+## Dwell is the select. Only a RAISED hand counts (wrist above its elbow): a child standing
+## with arms hanging in front of a card doesn't pick it. Single button / remote: next = move the highlight, select or long = start the
 ## highlighted game, back = leave free play (stays here when the picker is the start screen).
 ## The "session" card (first) starts today's fixed session. A game with levels (Bubble Pop)
 ## opens a second page: Easy / Medium / Hard (back = return to the games).
@@ -35,6 +36,7 @@ var _last_call := -100.0
 
 ## last: the card played last time, highlighted first · last_level: on the level page
 func setup_picker(ids: Array, last := "", last_level := "") -> void:
+	VisionClient.subscribe(true, false, false, [], true)   # hands: the fingertip is the cursor
 	_game_cards = ids
 	_last_level = last_level
 	_show_page("games", ids, maxi(0, ids.find(last)))
@@ -76,10 +78,28 @@ func card_rects() -> Array:
 func _hands() -> Array:
 	if not fake_hands.is_empty():
 		return fake_hands
+	if VisionClient.hands_fresh():
+		return _fingertips()
 	var out: Array = []
 	for h in (GameManager.avatar.hands() if GameManager.avatar != null else []):
 		if _raised(h):
 			out.append(h)
+	return out
+
+
+## Index fingertips of the active children's raised hands, in screen pixels.
+func _fingertips() -> Array:
+	var view := get_viewport_rect().size
+	var active := {}
+	for p in VisionClient.active_people:
+		active[int(p.get("id", -1))] = true
+	var out: Array = []
+	for h in VisionClient.hands:
+		var pid := int(h.get("player", -1))
+		if not active.has(pid) or not _raised(h):
+			continue
+		out.append({"player": pid, "side": str(h["side"]), "radius": 20.0,
+			"pos": VisionClient.to_screen(Vector2(float(h["tip"][0]), float(h["tip"][1])), view)})
 	return out
 
 

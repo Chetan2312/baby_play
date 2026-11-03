@@ -1,4 +1,4 @@
-"""Vision service entry point: python -m takatak_vision.main [--profile kit] [--camera noir] [--video clip.mp4]"""
+"""Vision service entry point: python -m takatak_vision.main [--profile kit|n150] [--camera noir] [--video clip.mp4]"""
 import argparse
 import asyncio
 import signal
@@ -10,6 +10,7 @@ import traceback
 from . import build, hardware
 from .config import PROFILES, load_config
 from .lifecycle import Shutdown
+from .protocol import CAMERAS
 from .pipeline import HardwareSource
 from .server import VisionServer
 
@@ -18,7 +19,7 @@ def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="Takatak vision service (WebSocket, no UI)")
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--profile", choices=PROFILES, help="override hardware.profile")
-    ap.add_argument("--camera", choices=["wide", "noir", "imx500", "auto"])
+    ap.add_argument("--camera", choices=CAMERAS)
     ap.add_argument("--port", type=int)
     ap.add_argument("--host")
     ap.add_argument("--video", help="DEV ONLY: recorded clip instead of the camera")
@@ -92,7 +93,7 @@ def main(argv=None):
         traceback.print_exc()
         code = 1
     finally:
-        print("[exit] stopping camera / Hailo…", flush=True)
+        print("[exit] stopping camera / pose…", flush=True)
         shutdown.shutdown(source.stop, code=code)
 
 

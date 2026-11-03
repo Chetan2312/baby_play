@@ -103,3 +103,47 @@ def test_recording_tools_refuse_in_field_build():
         r = subprocess.run([sys.executable, os.path.join(tools, tool), "--i-have-consent"],
                            capture_output=True, text=True, env=env, timeout=30)
         assert r.returncode != 0 and "disabled in field builds" in r.stderr, tool
+
+
+def test_n150_profile():
+    cfg = C.load_config(profile="n150")
+    prof = cfg["profile"]
+    assert prof["accelerator"] == "openvino" and prof["camera_backend"] == "v4l2"
+    assert cfg["model"] == os.path.join("models/openvino", "yolov8n-pose_384x640_fp16")
+    assert cfg["camera"] == "usb"
+    assert cfg["hands"]["workers"] == 1 and cfg["thermal"]["throttle_c"] == 90   # profile overrides
+    assert cfg["camera_opts"]["rotation"] == "normal" and cfg["camera_opts"]["main_size"] == [1920, 1080]
+    dev = C.load_config(profile="devrig")
+    assert dev["hands"]["workers"] == 2 and dev["camera_opts"]["rotation"] == "inverted"   # Pi untouched
+
+
+def test_profile_from_env(monkeypatch):
+    monkeypatch.setenv("TAKATAK_PROFILE", "n150")
+    assert C.load_config()["profile"]["name"] == "n150"
+    assert C.load_config(profile="kit")["profile"]["name"] == "kit"   # --profile still wins
+
+
+def test_parse_v4l2_nodes(tmp_path):
+    for node, idx, name in (("video0", 0, "Arducam_16MP"), ("video1", 1, "Arducam_16MP"), ("video2", 0, "HD Cam")):
+        (tmp_path / node).mkdir()
+        (tmp_path / node / "index").write_text(f"{idx}\n")
+        (tmp_path / node / "name").write_text(name + "\n")
+    assert hardware.parse_v4l2_nodes(str(tmp_path)) == ["Arducam_16MP", "HD Cam"]
+
+
+def test_n150_profile_errors():
+    prof = C.load_config(profile="n150")["profile"]
+    assert hardware.profile_errors(prof, "openvino", True, ["Arducam_16MP"]) == []
+    errs = hardware.profile_errors(prof, None, False, [])
+    assert len(errs) == 2 and "clinfo" in errs[0] and "USB camera" in errs[1]
+    assert not any("AI HAT" in e for e in errs)
+
+
+def test_cpu_temp_prefers_x86_pkg_temp(tmp_path):
+    from takatak_vision.pipeline import cpu_temp_path
+    for zone, kind in (("thermal_zone0", "acpitz"), ("thermal_zone1", "x86_pkg_temp")):
+        (tmp_path / zone).mkdir()
+        (tmp_path / zone / "type").write_text(kind + "\n")
+    assert cpu_temp_path(str(tmp_path)) == str(tmp_path / "thermal_zone1" / "temp")
+    (tmp_path / "thermal_zone1" / "type").write_text("cpu-thermal\n")   # Pi: first zone
+    assert cpu_temp_path(str(tmp_path)) == str(tmp_path / "thermal_zone0" / "temp")

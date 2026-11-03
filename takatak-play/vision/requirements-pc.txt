@@ -1,0 +1,7 @@
+# x86_64 PC (n150 profile): everything from pip, plain venv (no --system-site-packages).
+#   .env/bin/pip install -r vision/requirements.txt -r vision/requirements-pc.txt
+# One OpenCV only (contrib: mediapipe needs it); never install opencv-python alongside it.
+openvino
+simplejpeg
+numpy<2
+opencv-contrib-python<4.12
